@@ -1,4 +1,5 @@
 import os
+import glob
 import csv
 import copy
 from PyQt5 import QtWidgets, QtGui, QtCore
@@ -223,12 +224,22 @@ class PlayListModel(QtCore.QAbstractTableModel):
             return ''
 
     def catch_urls(self, urls, indexes_sel):
-        
+
+        # search recursive
+        found = []
+        for url in urls:
+            if os.path.isfile(url):
+                found += [url]
+            else:
+                if url[-1] != '/':
+                    url += '/'
+                found += glob.glob(url + '/**', recursive=True)
+
         # screening
         urls_csv = []
         urls_wav = []
         urls_npy = []
-        for url in urls:
+        for url in found:
             if not os.path.isfile(url):
                 continue
             _, ext = os.path.splitext(url)

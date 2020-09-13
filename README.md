@@ -1,6 +1,8 @@
 Kelp
-==================
-FIR Convolution Player with GUI
+====
+
+FIR Convolution Audio Player with GUI
+
 
 
 This is still in development
@@ -8,8 +10,8 @@ This is still in development
 
 ToDo:
 
-* Drop files recursively
-* All event centrally manage in eventFilter of MainWindow
+* play next
+* eventFilter of MainWindow centrally manages all events
 	- Refresh view after drop
 	- Set droped items seleted
 	- Stop playing item that is replaced by drop
