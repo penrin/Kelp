@@ -148,7 +148,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
             # save playlist
             elif key == QtCore.Qt.Key_S and mod == QtCore.Qt.ControlModifier:
-                self.playlistmodel.save_csv()
+                self.playlistmodel.save_csv(PlayListModel.savefile)
                 
             else:
                 return False # continue to default handling
@@ -332,7 +332,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def closeEvent(self, event):
         if self.count_closecalled == 0: # for cmd+Q call twice the closeEvent (probably Qt Bug)
-            self.playlistmodel.save_csv()
+            self.playlistmodel.save_csv(PlayListModel.savefile)
         self.count_closecalled += 1
         event.accept()
 
@@ -340,7 +340,7 @@ class MainWindow(QtWidgets.QMainWindow):
 vvvvv = '''
  ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ><>
     Kelp -- FIR Convolution Player
-    penrin(github.com/penrin/kelp)
+    penrin(github.com/penrin/Kelp)
 <>< ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 
 Python %s

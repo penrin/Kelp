@@ -8,22 +8,13 @@ class PlayListModel(QtCore.QAbstractTableModel):
     playmark = '>'
 
     def __init__(self, parent=None):
-
         super().__init__(parent)
         
         self.header = ['', 'Source', 'FIR', 'SG', 'FG', 'Peak']
-        self.data = self.import_csv()
+        self.data = self.import_csv(PlayListModel.savefile)
         
         if not self.data:
-            self.data = [
-                    ['', '../source/change_the_world.wav', '', 0, 0, '-inf'],
-                    ['', '../source/Duvivier.wav', '', 0, 0, '-inf'],
-                    ['', '../source/follow_me.wav', '', 0, 0, '-inf'],
-                    ['', '../source/ITAPEMIRIM.wav', '', 0, 0, '-inf'],
-                    ['', '../source/雪柳.wav', '', 0, 0, '-inf'],
-                    ['', '../雪柳.wav', '', 0, 0, '-inf'],
-                    ]
-
+            self.data = self.import_csv('playlist_test.csv') # <-- delete in the future
 
     def rowCount(self, parent=QtCore.QModelIndex()):
         return len(self.data)
@@ -111,8 +102,7 @@ class PlayListModel(QtCore.QAbstractTableModel):
                 index = self.createIndex(i, 0)
                 self.dataChanged.emit(index, index)
 
-    def save_csv(self):
-        fname = PlayListModel.savefile
+    def save_csv(self, fname):
         try:        
             with open(fname, 'w') as f:
                 writer = csv.writer(f, delimiter=',')
@@ -123,9 +113,7 @@ class PlayListModel(QtCore.QAbstractTableModel):
         except Exception as e:
             print('save_csv:', e)
     
-    def import_csv(self):
-        fname = PlayListModel.savefile
-        
+    def import_csv(self, fname):
         try:
             with open(fname, 'r') as f:
                 reader = csv.reader(f, delimiter=',')
@@ -139,7 +127,7 @@ class PlayListModel(QtCore.QAbstractTableModel):
                     
                 if data[0] != self.header:
                     return []
-                
+                print('import_csv:', fname)
                 return data[1:]
         except Exception as e:
             print('import_csv:', e)
