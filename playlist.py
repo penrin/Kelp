@@ -1,21 +1,40 @@
 import os
 import csv
+import copy
 from PyQt5 import QtWidgets, QtGui, QtCore
 
 class PlayListModel(QtCore.QAbstractTableModel):
     
-    savefile = os.path.dirname(__file__) + '/playlist.csv'
-    playmark = '>'
-
     def __init__(self, parent=None):
         super().__init__(parent)
-        
-        self.header = ['', 'Source', 'FIR', 'SG', 'FG', 'Peak']
-        self.data = self.import_csv(PlayListModel.savefile)
-        
-        if not self.data:
-            self.data = self.import_csv('playlist_test.csv') # <-- delete in the future
 
+        self.playmark = '>'
+        self.header = ['', 'Source', 'FIR', 'SG', 'FG', 'Peak']
+        self.display_keys = [
+                'playmark',
+                'disp_src',
+                'disp_fir',
+                'gain_src',
+                'gain_fir',
+                'peak'
+                ]
+        
+        self.savefile = os.path.dirname(__file__) + '/playlist.csv'
+        self.save_keys = [
+                'path2src',
+                'path2fir',
+                'gain_src',
+                'gain_fir',
+                'peak'
+                ]
+        
+        self.data = self.import_csv(self.savefile)
+        if not self.data:
+            self.data = []
+            self.data = self.import_csv('playlist_test.csv') # <-- delete in the future
+            
+
+    
     def rowCount(self, parent=QtCore.QModelIndex()):
         return len(self.data)
 
@@ -25,7 +44,7 @@ class PlayListModel(QtCore.QAbstractTableModel):
     def data(self, index, role):
         if role == QtCore.Qt.DisplayRole:
             row, col = index.row(), index.column()
-            return self.data[row][col]
+            return self.data[row][self.display_keys[col]]
 
     def headerData(self, section, orientation, role):
         if role == QtCore.Qt.DisplayRole:
@@ -48,25 +67,33 @@ class PlayListModel(QtCore.QAbstractTableModel):
     
     def supportedDropActions(self):
         return QtCore.Qt.CopyAction | QtCore.Qt.MoveAction
-
+    '''
     def setData(self, index, value, role):
         if (role == QtCore.Qt.EditRole) or (role == QtCore.Qt.DisplayRole):
             row, col = index.row(), index.column()
-            self.data[row][col] = str(value)
+            print('setData', row, col)
+            self.data[row][self.display_keys[col]] = value
             #self.dataChanged.emit(index, index)
             return True
         return False
-        
+     
     def insertRows(self, row, count, index=QtCore.QModelIndex()):
         print('insert', row, count)
         first, last = row, row + count - 1
         self.beginInsertRows(index, first, last)
-        empty = ['', '', '', '', '', '']
+        empty = {
+                'playmark': '',
+                'disp_src': '',
+                'disp_fir': '',
+                'source_gain': 0,
+                'gain_fir': 0,
+                'peak': '-inf'
+                }
         new = [empty for _ in range(count)]
         self.data[:row] += new
         self.endInsertRows()
         return True
-        
+    
     def removeRows(self, row, count, index=QtCore.QModelIndex()):
         print('remove', row, count)
         first, last = row, row + count - 1
@@ -74,31 +101,71 @@ class PlayListModel(QtCore.QAbstractTableModel):
         del self.data[row:row+count]
         self.endRemoveRows()
         return True
+    '''
+    def insertRows(self, row, count, index=QtCore.QModelIndex()):
+        print('insertRows called') # do nothing
+        return True
     
+    def removeRows(self, row, count, index=QtCore.QModelIndex()):
+        print('removeRows called') # do nothing
+        return True
+
+    def reorder_selected(self, mimedata, row_target):
+        if row_target == -1:
+            row_target = self.rowCount()
+            
+        # decode mime data
+        mimetype = 'application/x-qabstractitemmodeldatalist'
+        if not mimetype in mimedata.formats():
+            return
+        encoded = mimedata.data(mimetype)
+        data = []
+        item = {}
+        stream = QtCore.QDataStream(encoded)
+        while not stream.atEnd():
+            row = stream.readInt32()
+            col = stream.readInt32()
+            map_items = stream.readInt32()
+            for i in range(map_items):
+                key = stream.readInt32()
+                value = QtCore.QVariant()
+                stream >> value
+                item[QtCore.Qt.ItemDataRole(key)] = value
+            data.append([row, col, item])
+        
+        # reorder
+        rows_sel = list({d[0] for d in data})
+        print('reorder', rows_sel, 'at', row_target)
+        
+        data_sel = []
+        for row in sorted(rows_sel, reverse=True):
+            data_sel.append(self.data.pop(row))
+            if row < row_target:
+                row_target -= 1
+        self.data[:row_target] += reversed(data_sel)
+        return
+
     def dropMimeData(self, data, action, row, col, parent):
-        if row == -1:
-            row = self.rowCount()
-        # Always move the entire row, and avoid column "shifting"
-        return super().dropMimeData(data, action, row, 0, parent)
+        if action == QtCore.Qt.MoveAction:
+            # move action
+            self.reorder_selected(data, row)
+            return True
+
+        return super().dropMimeData(data, action, row, col, parent)
 
     def get_data(self, row):
         return self.data[row]
-
-    def remove_selected(self, indexes_sel):
-        rows_sel = list({index.row() for index in indexes_sel})
-        for row in sorted(rows_sel, reverse=True):
-            self.removeRows(row, 1)
-            
+ 
     def set_playmark(self, row):
         if 0 <= row and row < self.rowCount():
-            self.data[row][0] = PlayListModel.playmark
+            self.data[row]['playmark'] = self.playmark
             index = self.createIndex(row, 0)
             self.dataChanged.emit(index, index)
         
     def clear_playmark(self):
         for i in range(self.rowCount()):
-            if self.data[i][0] == PlayListModel.playmark:
-                self.data[i][0] = ''
+            if self.data[i]['playmark'] == self.playmark:
+                self.data[i]['playmark'] = ''
                 index = self.createIndex(i, 0)
                 self.dataChanged.emit(index, index)
 
@@ -106,33 +173,166 @@ class PlayListModel(QtCore.QAbstractTableModel):
         try:        
             with open(fname, 'w') as f:
                 writer = csv.writer(f, delimiter=',')
-                writer.writerow(self.header)
+                writer.writerow(self.save_keys)
                 for d in self.data:
-                    writer.writerow(d)
+                    d_save = [d[key] for key in self.save_keys]
+                    writer.writerow(d_save)
                 print('save:', fname)
         except Exception as e:
             print('save_csv:', e)
+            
     
     def import_csv(self, fname):
         try:
             with open(fname, 'r') as f:
                 reader = csv.reader(f, delimiter=',')
-                data = [row for row in reader]
+                csv_data = [row for row in reader]
 
-                L = len(data[0])
-                for d in data[1:]:
-                    if len(d) != L:
-                        return []
-                    d[0] = ''
-                    
-                if data[0] != self.header:
-                    return []
+                key_list = []
+                for d in csv_data[0]:
+                    key_list.append(d.strip(' '))
+
+                data_imported = []
+                for csv_d in csv_data[1:]:
+                    d = {}
+                    for col, key in enumerate(key_list):
+                        d[key] = csv_d[col]
+                    d['playmark'] = ''
+                    d['disp_src'] = self.dispname(d['path2src'])
+                    d['disp_fir'] = self.dispname(d['path2fir'])
+                    data_imported.append(d)
+
                 print('import_csv:', fname)
-                return data[1:]
+                return data_imported
         except Exception as e:
             print('import_csv:', e)
         
         return []
+
+    def dispname(self, name):
+        # format filename for display
+        if name:
+            name_split = name.split('/')
+            fmtname = ''
+            for dirname in name_split[:-1]:
+                if dirname:
+                    fmtname += '/' + dirname[0]
+            fmtname += '/' + name_split[-1]
+            return fmtname
+        else:
+            return ''
+
+    def catch_urls(self, urls, indexes_sel):
+        
+        # screening
+        urls_csv = []
+        urls_wav = []
+        urls_npy = []
+        for url in urls:
+            if not os.path.isfile(url):
+                continue
+            _, ext = os.path.splitext(url)
+            if ext == '.csv':
+                urls_csv.append(url)
+            elif ext == '.wav':
+                urls_wav.append(url)
+            elif ext == '.npy':
+                urls_npy.append(url)
+        
+        
+        # read csv priority and return
+        if urls_csv:
+            for url in urls_csv:
+                new_data = self.import_csv(url)
+                self.insert_data(new_data)
+            return
+        
+        # selection -> replace
+        if indexes_sel:
+            if len(urls_wav) == 1 and len(urls_npy) == 0:
+                rows_sel = list({index.row() for index in indexes_sel})
+                for row in rows_sel:
+                    self.data[row]['path2src'] = urls_wav[0]
+                    self.data[row]['disp_src'] = self.dispname(urls_wav[0])
+                return
+            elif len(urls_wav) == 0 and len(urls_npy) == 1:
+                rows_sel = list({index.row() for index in indexes_sel})
+                for row in rows_sel:
+                    self.data[row]['path2fir'] = urls_npy[0]
+                    self.data[row]['disp_fir'] = self.dispname(urls_npy[0])
+                return
+        
+        # no selection -> add all combination
+        new_data = []
+        if len(urls_wav) > 0 and len(urls_npy) == 0:
+            for url in urls_wav:
+                d = {
+                    'playmark': '', 
+                    'path2src': url,
+                    'disp_src': self.dispname(url),
+                    'path2fir': '',
+                    'disp_fir': '',
+                    'gain_fir': 0,
+                    'gain_src': 0,
+                    'peak': '-inf'
+                    }
+                new_data.append(d)
+
+        elif len(urls_wav) == 0 and len(urls_npy) > 0:
+            for url in urls_npy:
+                d = {
+                    'playmark': '', 
+                    'path2src': '',
+                    'disp_src': '',
+                    'path2fir': url,
+                    'disp_fir': self.dispname(url),
+                    'gain_fir': 0,
+                    'gain_src': 0,
+                    'peak': '-inf'
+                    }
+                new_data.append(d)
+
+        elif len(urls_wav) > 0 and len(urls_npy) > 0:
+            for url_wav in urls_wav:
+                for url_npy in urls_npy:
+                    d = {
+                        'playmark': '', 
+                        'path2src': url_wav,
+                        'disp_src': self.dispname(url_wav),
+                        'path2fir': url_npy,
+                        'disp_fir': self.dispname(url_npy),
+                        'gain_fir': 0,
+                        'gain_src': 0,
+                        'peak': '-inf'
+                        }
+                    new_data.append(d)
+        self.insert_data(new_data)
+        return
+     
+    def insert_data(self, new_data, row=-1, index=QtCore.QModelIndex()):
+        if len(new_data) == 0:
+            return True
+        if row < 0:
+            row = self.rowCount()
+        count = len(new_data)
+        first, last = row, row + count - 1
+        self.beginInsertRows(index, first, last)
+        self.data[:row] += new_data
+        self.endInsertRows()
+        return True
+    
+    def remove_data(self, row, index=QtCore.QModelIndex()):
+        print('remove_row:', row)
+        self.beginRemoveRows(index, row, row)
+        del self.data[row]
+        self.endRemoveRows()
+        return True
+
+    def remove_selected(self, indexes_sel):
+        rows_sel = list({index.row() for index in indexes_sel})
+        for row in sorted(rows_sel, reverse=True):
+            self.remove_data(row)
+    
 
     
 class DrawLineStyle(QtWidgets.QProxyStyle):
@@ -161,6 +361,7 @@ class PlayListView(QtWidgets.QTableView):
         
         # set model
         self.setModel(playlistmodel)
+        self.playlistmodel = playlistmodel
         
         # appearance
         self.setShowGrid(False)
@@ -170,8 +371,8 @@ class PlayListView(QtWidgets.QTableView):
         hh = self.horizontalHeader()
         hh.setMinimumSectionSize(15)
         hh.resizeSection(0, 10)
-        hh.resizeSection(1, 400)    
-        hh.resizeSection(2, 400)    
+        hh.resizeSection(1, 300)    
+        hh.resizeSection(2, 300)    
         hh.resizeSection(3, 40)    
         hh.resizeSection(4, 40)    
         hh.resizeSection(4, 40)    
@@ -189,6 +390,32 @@ class PlayListView(QtWidgets.QTableView):
 
         # draw line across the entire row
         self.setStyle(DrawLineStyle())
+        
+    
 
+    def dragEnterEvent(self, event):
+        print('dragEnterEvent')
+        data = event.mimeData()
+        if data.hasUrls():
+            event.acceptProposedAction()
+        elif 'application/x-qabstractitemmodeldatalist' in data.formats():
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+        
+    def dropEvent(self, event):
+        print('dropEvent')
 
-   
+        data = event.mimeData()
+        if data.hasUrls():
+            urls = [url.path() for url in event.mimeData().urls()]
+            
+            indexes_sel = self.selectedIndexes()
+            self.playlistmodel.catch_urls(urls, indexes_sel)
+            event.accept()
+            
+        elif 'application/x-qabstractitemmodeldatalist' in data.formats():
+            self.clearSelection()
+            
+        return super().dropEvent(event)
+

@@ -25,7 +25,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def initUI(self):
         
         self.setWindowTitle('Kelp')
-        self.resize(1000, 500)
+        self.resize(800, 500)
         self.setMinimumSize(600, 300) 
         
         # display
@@ -47,7 +47,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.step_slider = 5000
         self.slider_pos.setMaximum(self.step_slider)
         self.slider_pos.setEnabled(False)
-        
         
         # time display
         self.label_pos = QtWidgets.QLabel('0:00/0:00', self)
@@ -148,11 +147,16 @@ class MainWindow(QtWidgets.QMainWindow):
 
             # save playlist
             elif key == QtCore.Qt.Key_S and mod == QtCore.Qt.ControlModifier:
-                self.playlistmodel.save_csv(PlayListModel.savefile)
+                self.playlistmodel.save_csv(self.playlistmodel.savefile)
                 
             else:
                 return False # continue to default handling
             return True
+        
+        elif event.type() == QtCore.QEvent.Drop:
+            print('gui-drop')
+            
+
         return False # continue to default handling
             
         
@@ -170,7 +174,7 @@ class MainWindow(QtWidgets.QMainWindow):
             row = 0
 
         data = self.playlistmodel.get_data(row)
-        fname = data[1]
+        fname = data['path2src']
 
         print('play: row', row, ',', fname)
         
@@ -180,8 +184,9 @@ class MainWindow(QtWidgets.QMainWindow):
             print(e, file=sys.stderr)
             self.label_state.setText('Player Stopped\n%s' % e)
             return
-
-        self.label_state.setText('Source: %s\nFIR:' % fname)
+        
+        text = 'Source: %s\nFIR: %s' % (data['disp_src'], data['disp_fir'])
+        self.label_state.setText(text)
         try:
             state = self.player.play()
         except Exception as e:
@@ -323,7 +328,7 @@ class MainWindow(QtWidgets.QMainWindow):
         rows = list({index.row() for index in indexes_sel})
         for row in rows:
             d = self.playlistmodel.get_data(row)
-            if d[0] == PlayListModel.playmark:
+            if d['playmark'] == self.playlistmodel.playmark:
                 self.stop()
 
         # remove
@@ -332,7 +337,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def closeEvent(self, event):
         if self.count_closecalled == 0: # for cmd+Q call twice the closeEvent (probably Qt Bug)
-            self.playlistmodel.save_csv(PlayListModel.savefile)
+            #self.playlistmodel.save_csv(self.playlistmodel.savefile)
+            pass
         self.count_closecalled += 1
         event.accept()
 
