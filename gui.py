@@ -1,4 +1,5 @@
 import sys
+import time
 import platform
 #import numpy as np
 from PyQt5 import QtWidgets, QtGui, QtCore
@@ -105,6 +106,9 @@ class MainWindow(QtWidgets.QMainWindow):
         
         # play button
         self.btn_play.clicked.connect(self.play_pause)
+
+        # play next (automatically)
+        self.player.stream_ended.connect(self.play_next)
         
         # double clock the playlist item
         self.playlistview.doubleClicked.connect(self.play)
@@ -116,6 +120,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.slider_pos.sliderMoved.connect(self.indicate_position)
         self.slider_pos.sliderPressed.connect(self.indicate_position)
         self.slider_pos.sliderReleased.connect(self.set_position)
+
         
 
     def eventFilter(self, obj, event):
@@ -156,15 +161,12 @@ class MainWindow(QtWidgets.QMainWindow):
         elif event.type() == QtCore.QEvent.Drop:
             print('gui-drop')
             
+        #print(event.type())
 
         return False # continue to default handling
             
         
     def play(self):
-        self.label_pos.setText('0:00/0:00')
-        self.slider_pos.setValue(0)
-        self.playlistmodel.clear_playmark()
-        
         indexes_sel = self.playlistview.selectedIndexes()
         if indexes_sel:
             #row = indexes_sel[0].row()
@@ -173,9 +175,16 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             row = 0
 
+        self._play_row(row)
+        
+        
+    def _play_row(self, row):
+        self.label_pos.setText('0:00/0:00')
+        self.slider_pos.setValue(0)
+        self.playlistmodel.clear_playmark()
+
         data = self.playlistmodel.get_data(row)
         fname = data['path2src']
-
         print('play: row', row, ',', fname)
         
         try:
@@ -183,6 +192,7 @@ class MainWindow(QtWidgets.QMainWindow):
         except Exception as e:
             print(e, file=sys.stderr)
             self.label_state.setText('Player Stopped\n%s' % e)
+            self.playlistmodel.set_errormark(row)
             return
         
         text = 'Source: %s\nFIR: %s' % (data['disp_src'], data['disp_fir'])
@@ -192,11 +202,12 @@ class MainWindow(QtWidgets.QMainWindow):
         except Exception as e:
             print(e, file=sys.stderr)
             self.label_state.setText('Player Stopped\n%s' % e)
+            self.playlistmodel.set_errormark()
+            return
             
         if state == Player.playing:
             self.btn_play.setText('Pause')
             self.playlistmodel.set_playmark(row)
-            #self.playlistview.
 
             # for time display
             self.timer.start()
@@ -205,8 +216,8 @@ class MainWindow(QtWidgets.QMainWindow):
             length_sec = self.nframes / self.fs
             self.len_label = '%d:%02d' % (length_sec // 60, length_sec % 60)
             self.slider_pos.setEnabled(True)
-    
-    
+        
+
     def stop(self):
         self.timer.stop()
         self.label_pos.setText('0:00/0:00')
@@ -233,6 +244,22 @@ class MainWindow(QtWidgets.QMainWindow):
             self.play()
             
     
+    def play_next(self):
+        # now playing
+        row_next = self.playlistmodel.get_row_playing() + 1
+        if row_next == self.playlistmodel.rowCount():
+            print('play_next: no next')
+            return
+
+        while self.player.actually_playing():
+            time.sleep(0.005)
+            
+        # next row
+        print('play_next')
+        self._play_row(row_next)
+
+
+
     def refresh_device_combo(self):
         # re-instantiate pyaudio
         self.player.reboot()

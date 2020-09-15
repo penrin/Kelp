@@ -1,9 +1,12 @@
 import pyaudio
 import wave
+from PyQt5 import QtCore
 
+class Player(QtCore.QObject):
 
-class Player:
-    
+    # Qt signal
+    stream_ended = QtCore.pyqtSignal()
+
     # status value
     empty = 0 # no wave file
     ready = 1 # file opened (Need to create a new stream)
@@ -46,6 +49,7 @@ class Player:
     # 
 
     def __init__(self):
+        super().__init__()
         self._init()
 
     def __del__(self):
@@ -57,6 +61,8 @@ class Player:
 
         self.host = self.p.get_default_host_api_info()
         self.device = self.p.get_default_output_device_info()
+
+        self.portaudio_version = pyaudio.get_portaudio_version_text()
 
     def _del(self):
         self.clear()
@@ -79,8 +85,7 @@ class Player:
     def _callback(self, in_data, frame_count, time_info, status):
 
         if self.wf.tell() == self.nframes:
-            # --------- something trigger (no long time blocking!)
-            print('end', self.fname)
+            self.stream_ended.emit() # --------------------------> emit signal
             return b'', pyaudio.paComplete
         else:
             out_data = self.wf.readframes(frame_count)
@@ -149,7 +154,7 @@ class Player:
     def actually_playing(self):
         # return True if (stream.is_active | stream.is_stopped) == True
         if self.state == Player.playing or self.state == Player.pausing:
-            if self.stream.is_active or self.stream.is_stopped:
+            if self.stream.is_active() or self.stream.is_stopped():
                 return True
         return False
     

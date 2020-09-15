@@ -10,6 +10,7 @@ class PlayListModel(QtCore.QAbstractTableModel):
         super().__init__(parent)
 
         self.playmark = '>'
+        self.errormark = 'x'
         self.header = ['', 'Source', 'FIR', 'SG', 'FG', 'Peak']
         self.display_keys = [
                 'playmark',
@@ -162,6 +163,13 @@ class PlayListModel(QtCore.QAbstractTableModel):
             self.data[row]['playmark'] = self.playmark
             index = self.createIndex(row, 0)
             self.dataChanged.emit(index, index)
+
+    def set_errormark(self, row):
+        if 0 <= row and row < self.rowCount():
+            self.data[row]['playmark'] = self.errormark
+            index = self.createIndex(row, 0)
+            self.dataChanged.emit(index, index)
+        
         
     def clear_playmark(self):
         for i in range(self.rowCount()):
@@ -169,6 +177,12 @@ class PlayListModel(QtCore.QAbstractTableModel):
                 self.data[i]['playmark'] = ''
                 index = self.createIndex(i, 0)
                 self.dataChanged.emit(index, index)
+
+    def get_row_playing(self):
+        for row in range(self.rowCount()):
+            if self.data[row]['playmark'] == self.playmark:
+                return row
+        return -1
 
     def save_csv(self, fname):
         try:        
