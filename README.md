@@ -14,7 +14,6 @@ ToDo:
 	- Refresh view after drop
 	- Set droped items seleted
 	- Stop playing item that is replaced by drop
-* Refresh device list when open combobox
 * Convolution calculator
 * Sortable palylist
 * (Show indicator when drag and drop files, and drop there)

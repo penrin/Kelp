@@ -171,6 +171,7 @@ class Player(QtCore.QObject):
         return self.p.get_default_output_device_info()
 
 
+
 if __name__ == '__main__':
 
     import time
@@ -210,4 +211,8 @@ if __name__ == '__main__':
     # (5) clear
     p.clear()
     print('clear', p.state)
+
+
+
+
 

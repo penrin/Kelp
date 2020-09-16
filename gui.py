@@ -4,9 +4,18 @@ import platform
 #import numpy as np
 from PyQt5 import QtWidgets, QtGui, QtCore
 
+import pyaudio
 
 from player import Player
 from playlist import PlayListView, PlayListModel
+
+
+class ComboBox(QtWidgets.QComboBox):
+    popuped = QtCore.pyqtSignal()
+
+    def showPopup(self):
+        self.popuped.emit()
+        super(ComboBox, self).showPopup()
 
 
 
@@ -35,9 +44,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.label_state = QtWidgets.QLabel(text, self)
 
         # Device list
-        self.combo_device = QtWidgets.QComboBox(self)
-        self.combo_device.setMinimumSize(80, 30)
-        self.refresh_device_combo()
+        self.combo_device = ComboBox(self)
+        self.combo_device.setMinimumSize(200, 30)
+        self.combo_device.setMaximumSize(200, 30)
+        self.update_device_combo()
         
         # play/pause button
         self.btn_play = QtWidgets.QPushButton('Play', self)
@@ -114,6 +124,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.playlistview.doubleClicked.connect(self.play)
 
         # set device
+        self.combo_device.popuped.connect(self.update_device_combo)
         self.combo_device.activated.connect(self.set_device)
         
         # set position
@@ -260,11 +271,21 @@ class MainWindow(QtWidgets.QMainWindow):
 
 
 
-    def refresh_device_combo(self):
-        # re-instantiate pyaudio
-        self.player.reboot()
-        
-        # get new avalable device list
+    def update_device_combo(self):
+        '''
+        # newly instantiate pyaudio to get newest info.
+        # -> This plan is off and cannot get newest device list.
+        #    PyAudio seems to be shared in one process.
+        #    We have to terminate everything.
+        p = pyaudio.PyAudio()
+        avalable_devices = []
+        for i in range(p.get_device_count()):
+            info = p.get_device_info_by_index(i)
+            if info['maxOutputChannels'] > 0:
+                avalable_devices.append(info)
+        p.terminate()
+        '''
+        self.player.reboot() # to get new avalable device list
         avalable_devices = self.player.get_output_device_list()
         avalable_device_names = [dev['name'] for dev in avalable_devices]
 
@@ -277,6 +298,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.player.device = default
         index_current = self.combo_device.findText(default['name'])
         self.combo_device.setCurrentIndex(index_current)
+
 
         
     def set_device(self):
