@@ -59,8 +59,8 @@ class Player(QtCore.QObject):
         self.p = pyaudio.PyAudio()
         self.state = Player.empty
 
-        self.host = self.p.get_default_host_api_info()
         self.device = self.p.get_default_output_device_info()
+        self.host = self.p.get_host_api_info_by_index(self.device['hostApi'])
 
         self.portaudio_version = pyaudio.get_portaudio_version_text()
 

@@ -16,9 +16,10 @@ ToDo:
 	- Stop playing item that is replaced by drop
 * Convolution calculator
 * Sortable palylist
-* (Show indicator when drag and drop files, and drop there)
 * Enrich Help
 * repeat one/all
+* manage devices in player.py without gui.py
+* (Show indicator when drag and drop files, and drop there)
 
 
 Requirements

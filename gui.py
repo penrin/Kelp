@@ -39,15 +39,16 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setMinimumSize(600, 300) 
         
         # display
-        text = 'Player Stopped\n'
-        text += 'Host API: %s' % self.player.host['name']
-        self.label_state = QtWidgets.QLabel(text, self)
+        self.label_state = QtWidgets.QLabel(self)
 
-        # Device list
-        self.combo_device = ComboBox(self)
-        self.combo_device.setMinimumSize(200, 30)
-        self.combo_device.setMaximumSize(200, 30)
-        self.update_device_combo()
+        # time display
+        self.label_pos = QtWidgets.QLabel('0:00/0:00', self)
+        self.label_pos.setMinimumSize(80, 30)
+        self.label_pos.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+
+        self.timer = QtCore.QTimer(self)
+        self.timer.setInterval(500) # milisecond
+        self.timer.timeout.connect(self.update_timedisplay)
         
         # play/pause button
         self.btn_play = QtWidgets.QPushButton('Play', self)
@@ -58,15 +59,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self.step_slider = 5000
         self.slider_pos.setMaximum(self.step_slider)
         self.slider_pos.setEnabled(False)
-        
-        # time display
-        self.label_pos = QtWidgets.QLabel('0:00/0:00', self)
-        self.label_pos.setMinimumSize(80, 30)
-        self.label_pos.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
 
-        self.timer = QtCore.QTimer(self)
-        self.timer.setInterval(500) # milisecond
-        self.timer.timeout.connect(self.update_timedisplay)
+        # Device list
+        self.combo_device = ComboBox(self)
+        self.combo_device.setMinimumSize(200, 30)
+        self.combo_device.setMaximumSize(200, 30)
+        self.update_device_combo()
+        self.set_device()
+        
 
         # play list
         self.playlistview = PlayListView(self.playlistmodel)
@@ -272,6 +272,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
 
     def update_device_combo(self):
+        # stop
+        self.stop()
         '''
         # newly instantiate pyaudio to get newest info.
         # -> This plan is off and cannot get newest device list.
@@ -339,8 +341,16 @@ class MainWindow(QtWidgets.QMainWindow):
         # set device
         index_designated = avalable_device_names.index(designated_name)
         self.player.device = avalable_devices[index_designated]
+        i_host = avalable_devices[index_designated]['hostApi']
+        self.player.host = self.player.p.get_host_api_info_by_index(i_host)
         self.combo_device.setCurrentIndex(index_designated)
+        
+        text = 'Player Stopped\n'
+        text += 'Device: %s ' % self.player.device['name']
+        text += '(%s)' % self.player.host['name']
+        self.label_state.setText(text)
         print('Device->', designated_name)
+
     
     
     def set_position(self):
