@@ -282,12 +282,20 @@ class PlayListModel(QtCore.QAbstractTableModel):
                 for row in rows_sel:
                     self.data[row]['path2src'] = urls_wav[0]
                     self.data[row]['disp_src'] = self.dispname(urls_wav[0])
+                c = self.display_keys.index('disp_src')
+                topLeft = self.createIndex(min(rows_sel), c)
+                bottomRight = self.createIndex(max(rows_sel), c)
+                self.dataChanged.emit(topLeft, bottomRight)
                 return
             elif len(urls_wav) == 0 and len(urls_npy) == 1:
                 rows_sel = list({index.row() for index in indexes_sel})
                 for row in rows_sel:
                     self.data[row]['path2fir'] = urls_npy[0]
                     self.data[row]['disp_fir'] = self.dispname(urls_npy[0])
+                c = self.display_keys.index('disp_fir')
+                topLeft = self.createIndex(min(rows_sel), c)
+                bottomRight = self.createIndex(max(rows_sel), c)
+                self.dataChanged.emit(topLeft, bottomRight)
                 return
         
         # no selection -> add all combination
@@ -295,7 +303,7 @@ class PlayListModel(QtCore.QAbstractTableModel):
         if len(urls_wav) > 0 and len(urls_npy) == 0:
             for url in urls_wav:
                 d = {
-                    'playmark': '', 
+                    'playmark': '',
                     'path2src': url,
                     'disp_src': self.dispname(url),
                     'path2fir': '',
@@ -309,7 +317,7 @@ class PlayListModel(QtCore.QAbstractTableModel):
         elif len(urls_wav) == 0 and len(urls_npy) > 0:
             for url in urls_npy:
                 d = {
-                    'playmark': '', 
+                    'playmark': '',
                     'path2src': '',
                     'disp_src': '',
                     'path2fir': url,
@@ -324,7 +332,7 @@ class PlayListModel(QtCore.QAbstractTableModel):
             for url_wav in urls_wav:
                 for url_npy in urls_npy:
                     d = {
-                        'playmark': '', 
+                        'playmark': '',
                         'path2src': url_wav,
                         'disp_src': self.dispname(url_wav),
                         'path2fir': url_npy,
