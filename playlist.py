@@ -6,6 +6,8 @@ from PyQt5 import QtWidgets, QtGui, QtCore
 
 class PlayListModel(QtCore.QAbstractTableModel):
     
+    reordered = QtCore.pyqtSignal()
+
     def __init__(self, parent=None):
         super().__init__(parent)
 
@@ -113,6 +115,7 @@ class PlayListModel(QtCore.QAbstractTableModel):
         return True
 
     def reorder_selected(self, mimedata, row_target):
+        self.reordered.emit()
         if row_target == -1:
             row_target = self.rowCount()
             
@@ -344,6 +347,7 @@ class PlayListModel(QtCore.QAbstractTableModel):
         self.beginInsertRows(index, first, last)
         self.data[:row] += new_data
         self.endInsertRows()
+        self.reordered.emit()        
         return True
     
     def remove_data(self, row, index=QtCore.QModelIndex()):
@@ -358,6 +362,27 @@ class PlayListModel(QtCore.QAbstractTableModel):
         for row in sorted(rows_sel, reverse=True):
             self.remove_data(row)
     
+    def sort(self, col, order):
+        '''
+        if col == 0:
+            self.reordered.emit() # hide indicator
+            return
+        '''
+        key = self.display_keys[col]
+        descending = (order == QtCore.Qt.DescendingOrder)
+        self.data.sort(key=lambda x: x[key], reverse=descending)
+        
+        topLeft = self.createIndex(0, 0)
+        bottomRight = self.createIndex(self.rowCount(), self.columnCount())
+        self.dataChanged.emit(topLeft, bottomRight)
+        
+        if descending:
+            print('sort: %s, descending' % key)
+        else:
+            print('sort: %s, ascending' % key)
+        
+
+        
 
     
 class DrawLineStyle(QtWidgets.QProxyStyle):
@@ -395,7 +420,7 @@ class PlayListView(QtWidgets.QTableView):
 
         hh = self.horizontalHeader()
         hh.setMinimumSectionSize(15)
-        hh.resizeSection(0, 10)
+        hh.resizeSection(0, 24)
         hh.resizeSection(1, 300)    
         hh.resizeSection(2, 300)    
         hh.resizeSection(3, 40)    
@@ -415,8 +440,12 @@ class PlayListView(QtWidgets.QTableView):
 
         # draw line across the entire row
         self.setStyle(DrawLineStyle())
+
+        # sort
+        self.setSortingEnabled(True)
+        hh.setSortIndicator(-1, QtCore.Qt.AscendingOrder)
+        self.playlistmodel.reordered.connect(self.hideSortIndicator)
         
-    
 
     def dragEnterEvent(self, event):
         print('dragEnterEvent')
@@ -443,4 +472,9 @@ class PlayListView(QtWidgets.QTableView):
             self.clearSelection()
             
         return super().dropEvent(event)
+    
 
+    def hideSortIndicator(self):
+        self.horizontalHeader().setSortIndicator(-1, QtCore.Qt.AscendingOrder)
+        print('hideSortIndicator')
+        

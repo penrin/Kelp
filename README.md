@@ -15,7 +15,6 @@ ToDo:
 	- Set droped items seleted
 	- Stop playing item that is replaced by drop
 * Convolution calculator
-* Sortable palylist
 * Enrich Help
 * repeat one/all
 * manage devices in player.py without gui.py

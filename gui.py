@@ -213,7 +213,7 @@ class MainWindow(QtWidgets.QMainWindow):
         except Exception as e:
             print(e, file=sys.stderr)
             self.label_state.setText('Player Stopped\n%s' % e)
-            self.playlistmodel.set_errormark()
+            self.playlistmodel.set_errormark(row)
             return
             
         if state == Player.playing:
