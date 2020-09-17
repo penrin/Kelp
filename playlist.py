@@ -7,6 +7,7 @@ from PyQt5 import QtWidgets, QtGui, QtCore
 class PlayListModel(QtCore.QAbstractTableModel):
     
     reordered = QtCore.pyqtSignal()
+    playingItemReplaced = QtCore.pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -273,32 +274,54 @@ class PlayListModel(QtCore.QAbstractTableModel):
             for url in urls_csv:
                 new_data = self.import_csv(url)
                 self.insert_data(new_data)
-            return
         
-        # selection -> replace
-        if indexes_sel:
-            if len(urls_wav) == 1 and len(urls_npy) == 0:
-                rows_sel = list({index.row() for index in indexes_sel})
-                for row in rows_sel:
-                    self.data[row]['path2src'] = urls_wav[0]
-                    self.data[row]['disp_src'] = self.dispname(urls_wav[0])
-                c = self.display_keys.index('disp_src')
-                topLeft = self.createIndex(min(rows_sel), c)
-                bottomRight = self.createIndex(max(rows_sel), c)
-                self.dataChanged.emit(topLeft, bottomRight)
-                return
-            elif len(urls_wav) == 0 and len(urls_npy) == 1:
-                rows_sel = list({index.row() for index in indexes_sel})
-                for row in rows_sel:
-                    self.data[row]['path2fir'] = urls_npy[0]
-                    self.data[row]['disp_fir'] = self.dispname(urls_npy[0])
-                c = self.display_keys.index('disp_fir')
-                topLeft = self.createIndex(min(rows_sel), c)
-                bottomRight = self.createIndex(max(rows_sel), c)
-                self.dataChanged.emit(topLeft, bottomRight)
-                return
+        # replace if there are selections and
+        # only one file (wav or npy) is dropped
+        elif indexes_sel and len(urls_wav) + len(urls_npy) == 1:
+            self._replace(urls_wav, urls_npy, indexes_sel)
         
-        # no selection -> add all combination
+        # add all combination if no selection
+        else:
+            self._add_all_combinations(urls_wav, urls_npy) 
+        return
+
+
+    def _replace(self, urls_wav, urls_npy, indexes_sel):
+        
+        # ignore if multiple files are dropped
+        if len(urls_wav) + len(urls_npy) != 1:
+            return False
+
+        rows_sel = list({index.row() for index in indexes_sel})
+        if urls_wav:
+            for row in rows_sel:
+                self.data[row]['path2src'] = urls_wav[0]
+                self.data[row]['disp_src'] = self.dispname(urls_wav[0])
+        elif urls_npy:
+            for row in rows_sel:
+                self.data[row]['path2fir'] = urls_npy[0]
+                self.data[row]['disp_fir'] = self.dispname(urls_npy[0])
+        
+        # detect playing item replacement and emit signal
+        # (Then the slot side shoud stop playing)
+        for row in rows_sel:
+            if self.data[row]['playmark'] == self.playmark:
+                self.playingItemReplaced.emit()
+                print('replace the item being playing')
+        
+        # update view
+        if urls_wav:
+            col = self.display_keys.index('disp_src')
+        if urls_npy:
+            col = self.display_keys.index('disp_fir')
+
+        topLeft = self.createIndex(min(rows_sel), col)
+        bottomRight = self.createIndex(max(rows_sel), col)
+        self.dataChanged.emit(topLeft, bottomRight)
+        return True
+
+
+    def _add_all_combinations(self, urls_wav, urls_npy):
         new_data = []
         if len(urls_wav) > 0 and len(urls_npy) == 0:
             for url in urls_wav:
@@ -344,7 +367,8 @@ class PlayListModel(QtCore.QAbstractTableModel):
                     new_data.append(d)
         self.insert_data(new_data)
         return
-     
+
+
     def insert_data(self, new_data, row=-1, index=QtCore.QModelIndex()):
         if len(new_data) == 0:
             return True

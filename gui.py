@@ -132,6 +132,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.slider_pos.sliderPressed.connect(self.indicate_position)
         self.slider_pos.sliderReleased.connect(self.set_position)
 
+        # stop playing when replacing item being playing
+        self.playlistmodel.playingItemReplaced.connect(self.stop)
         
 
     def eventFilter(self, obj, event):
