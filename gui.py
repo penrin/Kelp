@@ -80,7 +80,7 @@ class MainWindow(QtWidgets.QMainWindow):
         #   row1: display, device list
         #   row2: position slider, position disploy, play/pause button
         #   row3: play list
-        #   row4: export button
+        #   row4: export butto
 
         box_row1 = QtWidgets.QHBoxLayout()
         box_row1.addWidget(self.label_state)

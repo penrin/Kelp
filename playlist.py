@@ -7,6 +7,7 @@ from PyQt5 import QtWidgets, QtGui, QtCore
 class PlayListModel(QtCore.QAbstractTableModel):
     
     reordered = QtCore.pyqtSignal()
+    selectedItemMoved = QtCore.pyqtSignal(list, list)
     playingItemReplaced = QtCore.pyqtSignal()
 
     def __init__(self, parent=None):
@@ -149,6 +150,12 @@ class PlayListModel(QtCore.QAbstractTableModel):
             if row < row_target:
                 row_target -= 1
         self.data[:row_target] += reversed(data_sel)
+        
+        # re-select moved items
+        first = row_target
+        last = row_target + len(data_sel)
+        rows_reselect = [i for i in range(first, last)]
+        self.selectedItemMoved.emit(rows_reselect, [])
         return
 
     def dropMimeData(self, data, action, row, col, parent):
@@ -401,19 +408,25 @@ class PlayListModel(QtCore.QAbstractTableModel):
             return
         '''
         key = self.display_keys[col]
-        descending = (order == QtCore.Qt.DescendingOrder)
-        self.data.sort(key=lambda x: x[key], reverse=descending)
+        descend = (order == QtCore.Qt.DescendingOrder)
+        #self.data.sort(key=lambda x: x[key], reverse=descending)
         
+        key = self.display_keys[col]
+        arr = [self.data[i][key] for i in range(self.rowCount())]
+        arr_sorted = sorted(enumerate(arr), key=lambda x:x[1], reverse=descend)
+        index_sort = [i[0] for i in arr_sorted]
+        self.data = [self.data[i] for i in index_sort]
+
         topLeft = self.createIndex(0, 0)
         bottomRight = self.createIndex(self.rowCount(), self.columnCount())
         self.dataChanged.emit(topLeft, bottomRight)
         
-        if descending:
+        if descend:
             print('sort: %s, descending' % key)
         else:
             print('sort: %s, ascending' % key)
         
-
+        self.selectedItemMoved.emit([], index_sort)
         
 
     
@@ -465,6 +478,7 @@ class PlayListView(QtWidgets.QTableView):
 
         # selection
         self.setSelectionBehavior(self.SelectRows)
+        self.setSelectionMode(self.ExtendedSelection)
 
         # drag and drop to reorder row items
         self.setDragDropMode(self.InternalMove)
@@ -477,6 +491,8 @@ class PlayListView(QtWidgets.QTableView):
         self.setSortingEnabled(True)
         hh.setSortIndicator(-1, QtCore.Qt.AscendingOrder)
         self.playlistmodel.reordered.connect(self.hideSortIndicator)
+        self.playlistmodel.selectedItemMoved.connect(self.move_selection)
+        
         
 
     def dragEnterEvent(self, event):
@@ -509,4 +525,30 @@ class PlayListView(QtWidgets.QTableView):
     def hideSortIndicator(self):
         self.horizontalHeader().setSortIndicator(-1, QtCore.Qt.AscendingOrder)
         print('hideSortIndicator')
+        
+    def move_selection(self, rows_sel=[], index_sort=[]):
+        if index_sort:
+            rows_sel_old = {index.row() for index in self.selectedIndexes()}
+            rows_sel = [index_sort.index(i) for i in list(rows_sel_old)]
+        if rows_sel:
+            self.clearSelection()
+            
+            # select indexes
+            '''
+            for row in rows_sel:
+                self.selectRow(row)
+            '''
+            indexes = []
+            num_col = self.playlistmodel.columnCount()
+            for row in rows_sel:
+                for col in range(num_col):
+                    indexes.append(self.playlistmodel.index(row, col))
+            
+            flag = QtCore.QItemSelectionModel.Select
+            for index in indexes:
+                self.selectionModel().select(index, flag)
+            
+            print('set_selected:', rows_sel)
+
+
         

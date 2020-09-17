@@ -10,10 +10,6 @@ This is still in development
 
 ToDo:
 
-* eventFilter of MainWindow centrally manages all events
-	- Refresh view after drop
-	- Set droped items seleted
-	- Stop playing item that is replaced by drop
 * Convolution calculator
 * Enrich Help
 * repeat one/all
