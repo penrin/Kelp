@@ -172,13 +172,13 @@ class PlayListModel(QtCore.QAbstractTableModel):
     def set_playmark(self, row):
         if 0 <= row and row < self.rowCount():
             self.data[row]['playmark'] = self.playmark
-            index = self.createIndex(row, 0)
+            index = self.index(row, 0)
             self.dataChanged.emit(index, index)
 
     def set_errormark(self, row):
         if 0 <= row and row < self.rowCount():
             self.data[row]['playmark'] = self.errormark
-            index = self.createIndex(row, 0)
+            index = self.index(row, 0)
             self.dataChanged.emit(index, index)
         
         
@@ -186,7 +186,7 @@ class PlayListModel(QtCore.QAbstractTableModel):
         for i in range(self.rowCount()):
             if self.data[i]['playmark'] == self.playmark:
                 self.data[i]['playmark'] = ''
-                index = self.createIndex(i, 0)
+                index = self.index(i, 0)
                 self.dataChanged.emit(index, index)
 
     def get_row_playing(self):
@@ -322,8 +322,8 @@ class PlayListModel(QtCore.QAbstractTableModel):
         if urls_npy:
             col = self.display_keys.index('disp_fir')
 
-        topLeft = self.createIndex(min(rows_sel), col)
-        bottomRight = self.createIndex(max(rows_sel), col)
+        topLeft = self.index(min(rows_sel), col)
+        bottomRight = self.index(max(rows_sel), col)
         self.dataChanged.emit(topLeft, bottomRight)
         return True
 
@@ -417,8 +417,8 @@ class PlayListModel(QtCore.QAbstractTableModel):
         index_sort = [i[0] for i in arr_sorted]
         self.data = [self.data[i] for i in index_sort]
 
-        topLeft = self.createIndex(0, 0)
-        bottomRight = self.createIndex(self.rowCount(), self.columnCount())
+        topLeft = self.index(0, 0)
+        bottomRight = self.index(self.rowCount(), self.columnCount())
         self.dataChanged.emit(topLeft, bottomRight)
         
         if descend:
