@@ -289,6 +289,10 @@ class MainWindow(QtWidgets.QMainWindow):
                 avalable_devices.append(info)
         p.terminate()
         '''
+        # remember current device
+        current_device = self.player.device
+
+        # re-instatiate pyaudio
         self.player.reboot() # to get new avalable device list
         avalable_devices = self.player.get_output_device_list()
         avalable_device_names = [dev['name'] for dev in avalable_devices]
@@ -296,14 +300,22 @@ class MainWindow(QtWidgets.QMainWindow):
         # update combo box
         self.combo_device.clear()
         self.combo_device.addItems(avalable_device_names)
-        
+
+        '''
         # set default device
         default = self.player.get_default_output_device()
         self.player.device = default
         index_current = self.combo_device.findText(default['name'])
         self.combo_device.setCurrentIndex(index_current)
+        '''
+        # select current device
+        if not current_device['name'] in avalable_device_names:
+            current_device = self.player.get_default_output_device()
+        index_current = self.combo_device.findText(current_device['name'])
+        self.combo_device.setCurrentIndex(index_current)
+        self.player.device = current_device
 
-
+        
         
     def set_device(self):
         # This program probably cannot distinguish between devices with
