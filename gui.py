@@ -197,11 +197,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.playlistmodel.clear_playmark()
 
         data = self.playlistmodel.get_data(row)
-        fname = data['path2src']
-        print('play: row', row, ',', fname)
+        print('play: row', row)
+        print('source:', data['path2src'])
+        print('FIR:', data['path2fir'])
         
         try:
-            state = self.player.set_file(fname)
+            state = self.player.set_config(data)
         except Exception as e:
             print(e, file=sys.stderr)
             self.label_state.setText('Player Stopped\n%s' % e)
@@ -224,8 +225,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
             # for time display
             self.timer.start()
-            self.fs = self.player.fs
-            self.nframes = self.player.nframes
+            self.fs = self.player.get_fs()
+            self.nframes = self.player.get_nframes()
             length_sec = self.nframes / self.fs
             self.len_label = '%d:%02d' % (length_sec // 60, length_sec % 60)
             self.slider_pos.setEnabled(True)

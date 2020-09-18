@@ -1,5 +1,6 @@
 import pyaudio
 import wave
+import numpy as np
 from PyQt5 import QtCore
 
 class Player(QtCore.QObject):
@@ -47,7 +48,17 @@ class Player(QtCore.QObject):
     # Then, it should be `(stream.is_active | stream.is_stopped) == False`
     # --> see also actually_playing()
     # 
-
+    # ----- configuration -----
+    #
+    # config = {
+    #     'path2src': str,
+    #     'path2fir': str,
+    #     'gain_fir': float,
+    #     'gain_src': float,
+    #     'peak': float,
+    # }
+    #
+    
     def __init__(self):
         super().__init__()
         self._init()
@@ -61,7 +72,6 @@ class Player(QtCore.QObject):
 
         self.device = self.p.get_default_output_device_info()
         self.host = self.p.get_host_api_info_by_index(self.device['hostApi'])
-
         self.portaudio_version = pyaudio.get_portaudio_version_text()
 
     def _del(self):
@@ -70,65 +80,65 @@ class Player(QtCore.QObject):
 
     def reboot(self):
         self._del()
-        self._init()        
+        self._init()
 
-    def set_file(self, fname):
+    def set_config(self, config):
         self.clear()
-        self.wf = wave.open(fname, 'rb')
-        self.fname = fname
-        self.fs = self.wf.getframerate()
-        self.nframes = self.wf.getnframes()
 
-        self.state = Player.ready
-        return self.state
-
-    def _callback(self, in_data, frame_count, time_info, status):
-
-        if self.wf.tell() == self.nframes:
-            self.stream_ended.emit() # --------------------------> emit signal
-            return b'', pyaudio.paComplete
+        if config['path2src'] == '':
+            raise Exception('No source')
+        
+        elif config['path2fir'] == '':
+            # play wave file direct
+            generator = WavGenerator(config, self.stream_ended)
+        
         else:
-            out_data = self.wf.readframes(frame_count)
-            nlack = self.bytes_per_frame * frame_count - len(out_data)
-            if nlack != 0:
-                out_data += b'\x00' * nlack
-            return out_data, pyaudio.paContinue
+            ndim_fir = np.load(config['path2fir'], 'r').ndim
+
+            if ndim_fir == 1:
+                generator = ParallelSISOGenerator(config, self.stream_ended)
+            elif ndim_fir == 3:
+                generator = MIMOGenerator(config, self.stream_ended)
+            else:
+                raise Exception('Invalid FIR shape')
+
+        self.config = config
+        self.generator = generator
+        self.state = self.ready
+        return self.state
 
     def play(self):
-        if self.state == Player.playing or self.state == Player.pausing:
+        if self.state == self.playing or self.state == self.pausing:
             self.stop()
         
-        if self.state == Player.ready:
-            self.nframes = self.wf.getnframes()
-            self.bytes_per_frame = self.wf.getsampwidth() * self.wf.getnchannels()
-            
+        if self.state == self.ready:
             # open stream
             self.stream = self.p.open(
-                    format=self.p.get_format_from_width(self.wf.getsampwidth()),
-                    channels=self.wf.getnchannels(), rate=self.wf.getframerate(),
-                    output=True, stream_callback=self._callback,
+                    format=pyaudio.paFloat32,
+                    channels=self.generator.nchannels, rate=self.generator.fs,
+                    output=True, stream_callback=self.generator.callback,
                     output_device_index=self.device['index']
                     )
-            self.state = Player.playing
+            self.state = self.playing
         return self.state
-        
+
     def set_pos(self, pos):
         if self.state != Player.empty:
-            self.wf.setpos(pos)
+            self.generator.set_pos(pos)
         return self.state
 
     def get_pos(self):
         if self.state != Player.empty:
-            return self.wf.tell()
+            return self.generator.get_pos()
         return 0
-        
+
     def pause(self):
         if self.state == Player.playing:
             if self.stream.is_active():
                 self.stream.stop_stream()
                 self.state = Player.pausing
         return self.state
-
+    
     def resume(self):
         if self.state == Player.pausing:
             if self.stream.is_stopped():
@@ -140,14 +150,14 @@ class Player(QtCore.QObject):
         if self.state == Player.playing or self.state == Player.pausing:
             self.stream.stop_stream()
             self.stream.close()
-            self.wf.rewind()
+            self.generator.set_pos(0)
             self.state = Player.ready
         return self.state
-        
+
     def clear(self):
         self.stop()
         if self.state == Player.ready:
-            self.wf.close()
+            del self.generator
             self.state = Player.empty
         return self.state
     
@@ -169,8 +179,106 @@ class Player(QtCore.QObject):
 
     def get_default_output_device(self):
         return self.p.get_default_output_device_info()
+    
+    def get_fs(self):
+        return self.generator.fs
+
+    def get_nframes(self):
+        return self.generator.nframes
 
 
+class WavGenerator:
+
+    def __init__(self, config, stream_ended):
+        self.config = config
+        self.stream_ended = stream_ended # Qt Signal
+
+        self.wf = wave.open(config['path2src'], 'rb')
+
+        self.fs = self.wf.getframerate()
+        self.ws = self.wf.getsampwidth()
+        self.nframes = self.wf.getnframes()
+        self.nchannels = self.wf.getnchannels()
+        
+        self.bytes_per_frame = self.wf.getnchannels() * 4 # PaFloat32
+
+        if self.ws == 2:
+            self.buffer2float = self.buffer2float_16bit
+        elif self.ws == 3:
+            self.buffer2float = self.buffer2float_24bit
+        elif self.ws == 4:
+            self.buffer2float = self.buffer2float_32bit
+        else:
+            raise Exception ('Unsupported wave format')
+        
+        # config['gain_src'] can be changed on the GUI side
+        self.gain_dB = config['gain_src']
+        self.gain = 10 ** (self.gain_dB / 20)
+        
+        
+    def __del__(self):
+        self.wf.close()
+
+    def callback(self, in_data, frame_count, time_info, status):
+        if self.wf.tell() == self.nframes:
+            self.stream_ended.emit() # --------------------------> emit signal
+            return b'', pyaudio.paComplete
+        else:
+            # read frame
+            frames = self.wf.readframes(frame_count)
+            nlack = self.bytes_per_frame * frame_count - len(frames)
+            if nlack != 0:
+                frames += b'\x00' * nlack
+            
+            # convert to numpy array
+            data = self.buffer2float(frames)
+
+            # detect config['gain_src'] changes and recalculate linear gain
+            if self.gain_dB != self.config['gain_src']:
+                self.gain_dB = self.config['gain_src']
+                self.gain = 10 ** (self.gain_dB / 20)
+                
+            # gain                
+            data *= self.gain
+
+            # convert to binary
+            out_data = data.astype(np.float32).tostring()
+
+            return out_data, pyaudio.paContinue
+        
+    def set_pos(self, pos):
+        self.wf.setpos(pos)
+
+    def get_pos(self):
+        return self.wf.tell()
+
+    def buffer2float_16bit(self, frames):
+        return np.frombuffer(frames, dtype=np.int16) / 32768
+
+    def buffer2float_24bit(self, frames):
+        a8 = np.frombuffer(frames, dtype=np.uint8)
+        tmp = np.zeros((nframes * nchannels, 4), dtype=np.uint8)
+        tmp[:, 1:] = a8.reshape(-1, 3)
+        return tmp.view(np.int32)[:, 0] / 2147483648
+
+    def buffer2float_32bit(self, frames):
+        return np.frombuffer(frames, dtype=np.int32) / 2147483648
+
+
+
+class ParallelSISOGenerator:
+
+    def __init__(self, config, stream_ended):
+        raise Exception ('not supported yet')
+
+
+class MIMOGenerator:
+    
+    def __init__(self, config, stream_ended):
+        raise Exception ('not supported yet')
+
+
+    
 
 if __name__ == '__main__':
 
@@ -178,41 +286,40 @@ if __name__ == '__main__':
     
     # (1) instantiate Player
     p = Player()
-    print('instatiate', p.state)
 
-    # (2) set file
-    p.set_file('../source/change_the_world.wav')
-    p.set_file('../source/hato.wav')
-    print('set file', p.state)
-
-    
+    # (2) set config
+    config = {
+        'path2src': '../source/hato.wav',
+        'path2fir': '',
+        'gain_fir': 0,
+        'gain_src': 0,
+        'peak': None,
+    }
+    p.set_config(config)
+    '''
     # (3) play
     p.play()
-    print('play', p.state)
-    
     time.sleep(5)
 
     # pause
     p.pause()
-    print('pause', p.state)
-
     time.sleep(2)
     
     # resume
     p.resume()
-    print('resume', p.state)
-
     time.sleep(5)
     
     # (4) stop
     p.stop()
-    print('stop', p.state)
 
     # (5) clear
     p.clear()
-    print('clear', p.state)
+    '''
 
-
+    p.play()
+    time.sleep(5)
+    config['gain_src'] = -10
+    time.sleep(5)
 
 
 

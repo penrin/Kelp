@@ -223,10 +223,13 @@ class PlayListModel(QtCore.QAbstractTableModel):
                     d = {}
                     for col, key in enumerate(key_list):
                         d[key] = csv_d[col]
+                    d['gain_src'] = float(d['gain_src'])
+                    d['gain_fir'] = float(d['gain_fir'])
                     d['playmark'] = ''
                     d['disp_src'] = self.dispname(d['path2src'])
                     d['disp_fir'] = self.dispname(d['path2fir'])
                     data_imported.append(d)
+
 
                 print('import_csv:', fname)
                 return data_imported
