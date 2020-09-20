@@ -3,6 +3,9 @@ import wave
 import numpy as np
 from PyQt5 import QtCore
 
+from convolution import OverlapSave, OverlapSaveMIMO
+
+
 class Player(QtCore.QObject):
 
     # Qt signal
@@ -13,6 +16,9 @@ class Player(QtCore.QObject):
     ready = 1 # file opened (Need to create a new stream)
     playing = 2
     pausing = 3
+
+    # the number of frames per buffer
+    CHUNK = 2048
     
     #
     # ----- state -----
@@ -93,14 +99,7 @@ class Player(QtCore.QObject):
             generator = WavGenerator(config, self.stream_ended)
         
         else:
-            ndim_fir = np.load(config['path2fir'], 'r').ndim
-
-            if ndim_fir == 1:
-                generator = ParallelSISOGenerator(config, self.stream_ended)
-            elif ndim_fir == 3:
-                generator = MIMOGenerator(config, self.stream_ended)
-            else:
-                raise Exception('Invalid FIR shape')
+            generator = ConvGenerator(config, self.stream_ended, self.CHUNK)
 
         self.config = config
         self.generator = generator
@@ -114,10 +113,13 @@ class Player(QtCore.QObject):
         if self.state == self.ready:
             # open stream
             self.stream = self.p.open(
+                    rate=self.generator.fs,
+                    channels=self.generator.nchannels_out,
                     format=pyaudio.paFloat32,
-                    channels=self.generator.nchannels, rate=self.generator.fs,
-                    output=True, stream_callback=self.generator.callback,
-                    output_device_index=self.device['index']
+                    output=True,
+                    output_device_index=self.device['index'],
+                    frames_per_buffer=self.CHUNK,
+                    stream_callback=self.generator.callback
                     )
             self.state = self.playing
         return self.state
@@ -198,9 +200,10 @@ class WavGenerator:
         self.fs = self.wf.getframerate()
         self.ws = self.wf.getsampwidth()
         self.nframes = self.wf.getnframes()
-        self.nchannels = self.wf.getnchannels()
-        
-        self.bytes_per_frame = self.wf.getnchannels() * 4 # PaFloat32
+        self.nchannels_src = self.wf.getnchannels()
+        self.nchannels_out = self.nchannels_src
+
+        self.bytes_per_frame = self.nchannels_src * 4 # PaFloat32
 
         if self.ws == 2:
             self.buffer2float = self.buffer2float_16bit
@@ -212,8 +215,11 @@ class WavGenerator:
             raise Exception ('Unsupported wave format')
         
         # config['gain_src'] can be changed on the GUI side
-        self.gain_dB = config['gain_src']
-        self.gain = 10 ** (self.gain_dB / 20)
+        self.gain_src_dB = config['gain_src']
+        self.gain_src = 10 ** (self.gain_src_dB / 20)
+
+        # peak
+        self.peak = -np.inf
         
         
     def __del__(self):
@@ -234,17 +240,27 @@ class WavGenerator:
             data = self.buffer2float(frames)
 
             # detect config['gain_src'] changes and recalculate linear gain
-            if self.gain_dB != self.config['gain_src']:
-                self.gain_dB = self.config['gain_src']
-                self.gain = 10 ** (self.gain_dB / 20)
+            if self.gain_src_dB != self.config['gain_src']:
+                self.gain_src_dB = self.config['gain_src']
+                self.gain_src = 10 ** (self.gain_src_dB / 20)
                 
             # gain                
-            data *= self.gain
+            data *= self.gain_src
+
+            # clipping
+            self._clip(data)
 
             # convert to binary
             out_data = data.astype(np.float32).tostring()
 
             return out_data, pyaudio.paContinue
+
+    def _clip(self, data):
+        peak = np.max(np.abs(data))
+        if peak > self.peak:
+            self.peak = peak
+            self.config['peak'] = 20 * np.log10(peak)
+        np.clip(data, -1, 1, out=data)
         
     def set_pos(self, pos):
         self.wf.setpos(pos)
@@ -257,7 +273,7 @@ class WavGenerator:
 
     def buffer2float_24bit(self, frames):
         a8 = np.frombuffer(frames, dtype=np.uint8)
-        tmp = np.zeros((nframes * nchannels, 4), dtype=np.uint8)
+        tmp = np.zeros((nframes * nchannels_src, 4), dtype=np.uint8)
         tmp[:, 1:] = a8.reshape(-1, 3)
         return tmp.view(np.int32)[:, 0] / 2147483648
 
@@ -266,16 +282,61 @@ class WavGenerator:
 
 
 
-class ParallelSISOGenerator:
-
-    def __init__(self, config, stream_ended):
-        raise Exception ('not supported yet')
-
-
-class MIMOGenerator:
+class ConvGenerator(WavGenerator):
     
-    def __init__(self, config, stream_ended):
-        raise Exception ('not supported yet')
+    def __init__(self, config, stream_ended, chunksize):
+        super().__init__(config, stream_ended)
+        
+        # try to import FIR filter
+        fir = np.load(config['path2fir'], 'r')
+
+        # set convolver
+        if fir.ndim == 1:
+            self.os = OverlapSave(fir, chunksize, self.nchannels_src, 'float')
+        elif fir.ndim == 3:
+            self.os = OverlapSaveMIMO(fir, chunksize, 'float')
+            self.nchannels_out = fir.shape[0]
+        else:
+            raise Exception('Invalid FIR shape')
+
+        # config['gain_fir'] can be changed on the GUI side
+        self.gain_fir_dB = config['gain_fir']
+        self.gain_fir = 10 ** (self.gain_fir_dB / 20)
+
+    
+    def callback(self, in_data, frame_count, time_info, status):
+        
+        # read frames from source, and convert to float
+        frames = self.wf.readframes(frame_count)
+        data_in = self.buffer2float(frames)
+        
+        # gain (source)
+        if self.gain_src_dB != self.config['gain_src']:
+            self.gain_src_dB = self.config['gain_src']
+            self.gain_src = 10 ** (self.gain_src_dB / 20)
+        data_in *= self.gain_src
+        
+        # convolution
+        data_in = data_in.reshape([self.nchannels_src, -1], order='F')
+        data_out, len_buf = self.os.conv(data_in)
+        
+        if len_buf < 0:
+            self.stream_ended.emit() # emit signal
+            return b'', pyaudio.paComplete
+
+        # gain (FIR)
+        if self.gain_fir_dB != self.config['gain_fir']:
+            self.gain_fir_dB = self.config['gain_fir']
+            self.gain_fir = 10 ** (self.gain_fir_dB / 20)
+        data_out *= self.gain_fir
+
+        # clipping
+        self._clip(data_out)
+        
+        # output
+        return data_out.reshape(-1, order='F').tostring(), pyaudio.paContinue
+
+
 
 
     

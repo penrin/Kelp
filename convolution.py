@@ -217,7 +217,7 @@ if __name__ == '__main__':
     x = np.ones(80).reshape(1, -1)
     h = np.ones(40)
     N = 32
-    dtype = 'float'
+    dtype = 'float' # or 'double'
 
     os = OverlapSave(h, N, channel=x.shape[0], dtype=dtype)
     
@@ -226,11 +226,11 @@ if __name__ == '__main__':
     ss = 0
     while True:
         y_chunk, len_buf = os.conv(x[:, ss:ss + N])
+        if len_buf <= 0:
+            break
+
         L = np.clip(len_buf, 0, N)
         y[:, ss:ss + L] = y_chunk[:, :L]
-
-        if L < N:
-            break
         ss += N
          
     plt.plot(y[0], lw=1)
@@ -251,11 +251,11 @@ if __name__ == '__main__':
     ss = 0
     while True:
         y_chunk, len_buf = os.conv(x[:, ss:ss + N])
+        if len_buf <= 0:
+            break
+
         L = np.clip(len_buf, 0, N)
         y[:, ss:ss + L] = y_chunk[:, :L]
-
-        if L < N:
-            break
         ss += N
     
     plt.plot(y[0], lw=1)
