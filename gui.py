@@ -194,6 +194,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def _play_row(self, row):
         self.label_pos.setText('0:00/0:00')
         self.slider_pos.setValue(0)
+        self.slider_pos.setEnabled(False)
         self.playlistmodel.clear_playmark()
 
         data = self.playlistmodel.get_data(row)
@@ -423,10 +424,7 @@ vvvvv = '''
     penrin(github.com/penrin/Kelp)
 <>< ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 
-Python %s
-NumPy %s
-PyQt5 %s
-''' % (platform.python_version(), ' . . ', QtCore.PYQT_VERSION_STR)
+'''
 
 if __name__ == '__main__':
     print(vvvvv)
