@@ -10,11 +10,11 @@ This is still in development
 
 ToDo:
 
-* Convolution calculator
 * Enrich Help
 * repeat one/all
 * manage devices in player.py without gui.py
 * (Show indicator when drag and drop files, and drop there)
+* (change gain by signal)
 
 
 Requirements

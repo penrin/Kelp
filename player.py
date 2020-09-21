@@ -10,6 +10,7 @@ class Player(QtCore.QObject):
 
     # Qt signal
     stream_ended = QtCore.pyqtSignal()
+    peak_updated = QtCore.pyqtSignal()
 
     # status value
     empty = 0 # no wave file
@@ -96,10 +97,12 @@ class Player(QtCore.QObject):
         
         elif config['path2fir'] == '':
             # play wave file direct
-            generator = WavGenerator(config, self.stream_ended)
+            generator = WavGenerator(
+                    config, self.stream_ended, self.peak_updated)
         
         else:
-            generator = ConvGenerator(config, self.stream_ended, self.CHUNK)
+            generator = ConvGenerator(
+                    config, self.stream_ended, self.peak_updated, self.CHUNK)
 
         self.config = config
         self.generator = generator
@@ -191,9 +194,10 @@ class Player(QtCore.QObject):
 
 class WavGenerator:
 
-    def __init__(self, config, stream_ended):
+    def __init__(self, config, stream_ended, peak_updated):
         self.config = config
         self.stream_ended = stream_ended # Qt Signal
+        self.peak_updated = peak_updated # Qt Signal
 
         self.wf = wave.open(config['path2src'], 'rb')
 
@@ -219,8 +223,7 @@ class WavGenerator:
         self.gain_src = 10 ** (self.gain_src_dB / 20)
 
         # peak
-        self.peak = -np.inf
-        
+        self.peak = 10 ** (config['peak'] / 20)
         
     def __del__(self):
         self.wf.close()
@@ -243,7 +246,7 @@ class WavGenerator:
             if self.gain_src_dB != self.config['gain_src']:
                 self.gain_src_dB = self.config['gain_src']
                 self.gain_src = 10 ** (self.gain_src_dB / 20)
-                
+
             # gain                
             data *= self.gain_src
 
@@ -260,6 +263,7 @@ class WavGenerator:
         if peak > self.peak:
             self.peak = peak
             self.config['peak'] = 20 * np.log10(peak)
+            self.peak_updated.emit()
         np.clip(data, -1, 1, out=data)
         
     def set_pos(self, pos):
@@ -284,8 +288,8 @@ class WavGenerator:
 
 class ConvGenerator(WavGenerator):
     
-    def __init__(self, config, stream_ended, chunksize):
-        super().__init__(config, stream_ended)
+    def __init__(self, config, stream_ended, peak_updated, chunksize):
+        super().__init__(config, stream_ended, peak_updated)
         
         # try to import FIR filter
         fir = np.load(config['path2fir'], 'r')

@@ -50,6 +50,9 @@ class PlayListModel(QtCore.QAbstractTableModel):
     def data(self, index, role):
         if role == QtCore.Qt.DisplayRole:
             row, col = index.row(), index.column()
+            # gain_src, gain_fir, peak
+            if col > 2: # 2 is self.header.index('SG') - 1
+                return '%.1f' % self.data[row][self.display_keys[col]]
             return self.data[row][self.display_keys[col]]
 
     def headerData(self, section, orientation, role):
@@ -225,6 +228,7 @@ class PlayListModel(QtCore.QAbstractTableModel):
                         d[key] = csv_d[col]
                     d['gain_src'] = float(d['gain_src'])
                     d['gain_fir'] = float(d['gain_fir'])
+                    d['peak'] = float(d['peak'])
                     d['playmark'] = ''
                     d['disp_src'] = self.dispname(d['path2src'])
                     d['disp_fir'] = self.dispname(d['path2fir'])
@@ -343,7 +347,7 @@ class PlayListModel(QtCore.QAbstractTableModel):
                     'disp_fir': '',
                     'gain_fir': 0,
                     'gain_src': 0,
-                    'peak': '-inf'
+                    'peak': float('-inf')
                     }
                 new_data.append(d)
 
@@ -357,7 +361,7 @@ class PlayListModel(QtCore.QAbstractTableModel):
                     'disp_fir': self.dispname(url),
                     'gain_fir': 0,
                     'gain_src': 0,
-                    'peak': '-inf'
+                    'peak': float('-inf')
                     }
                 new_data.append(d)
 
@@ -372,7 +376,7 @@ class PlayListModel(QtCore.QAbstractTableModel):
                         'disp_fir': self.dispname(url_npy),
                         'gain_fir': 0,
                         'gain_src': 0,
-                        'peak': '-inf'
+                        'peak': float('-inf')
                         }
                     new_data.append(d)
         self.insert_data(new_data)

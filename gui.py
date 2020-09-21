@@ -111,7 +111,6 @@ class MainWindow(QtWidgets.QMainWindow):
             font = QtGui.QFont('Monaco', 12)
             self.setFont(font)
         
-
     def connect(self):
         
         # play button
@@ -134,6 +133,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # stop playing when replacing item being playing
         self.playlistmodel.playingItemReplaced.connect(self.stop)
+
+        # update peak
+        self.player.peak_updated.connect(self.update_peak)
         
 
     def eventFilter(self, obj, event):
@@ -416,6 +418,15 @@ class MainWindow(QtWidgets.QMainWindow):
             pass
         self.count_closecalled += 1
         event.accept()
+
+    def update_peak(self):
+        # now playing
+        row = self.playlistmodel.get_row_playing()
+        if row < 0:
+            return
+        col = 5 #col = self.playlistmodel.header.index('Peak')
+        index = self.playlistmodel.index(row, col)
+        self.playlistmodel.dataChanged.emit(index, index)
 
 
 vvvvv = '''
