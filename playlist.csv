@@ -1,0 +1,5 @@
+path2src,path2fir,gain_src,gain_fir,peak
+/Users/penrin/Dropbox/meas/conv_GUI/source/Mendelssohn.wav,/Users/penrin/Dropbox/meas/conv_GUI/source/FIR_MINI_NOS.npy,0.5623413251903492,9.999999999999982,0.6967968
+/Users/penrin/Dropbox/meas/conv_GUI/source/Mendelssohn.wav,/Users/penrin/Dropbox/meas/conv_GUI/source/HPF.npy,0.5623413251903492,1.778279410038922,0.063383095
+/Users/penrin/Dropbox/meas/conv_GUI/source/Mendelssohn.wav,/Users/penrin/Dropbox/meas/conv_GUI/source/LPF.npy,0.5623413251903492,1.778279410038922,0.3098742085361445
+/Users/penrin/Dropbox/meas/conv_GUI/source/Mendelssohn.wav,,0.5623413251903492,,0.18019360090633138

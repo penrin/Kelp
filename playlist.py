@@ -38,9 +38,7 @@ class PlayListModel(QtCore.QAbstractTableModel):
         
         self.data = self.import_csv(self.savefile)
         if not self.data:
-            self.data = []
-            self.data = self.import_csv('playlist_test.csv') # <-- delete in the future
-            
+            self.data = [] 
 
     
     def rowCount(self, parent=QtCore.QModelIndex()):
@@ -55,8 +53,10 @@ class PlayListModel(QtCore.QAbstractTableModel):
             row, col = index.row(), index.column()
             # gain_src, gain_fir, peak -> show in dB
             if col > 2: # 2 is self.header.index('SG') - 1
-                value = self.data[row][self.display_keys[col]]
-                return '%.1f' % (20 * np.log10(value))
+                val = self.data[row][self.display_keys[col]]
+                if val != '':
+                    val = '%.1f' % (20 * np.log10(val))
+                return val
             return self.data[row][self.display_keys[col]]
 
         #if role == QtCore.Qt.TextAlignmentRole and index.column() > 2:
@@ -92,8 +92,8 @@ class PlayListModel(QtCore.QAbstractTableModel):
         #flags |= QtCore.Qt.ItemIsEditable
         flags |= QtCore.Qt.ItemIsDragEnabled
         
-        if index.column() in [3, 4]: # gain_src and gain_fir
-            flags |= QtCore.Qt.ItemIsEditable
+        #if index.column() in [3, 4]: # gain_src and gain_fir
+        #    flags |= QtCore.Qt.ItemIsEditable
 
         if not index.isValid(): # if not children
             flags |= QtCore.Qt.ItemIsDropEnabled
@@ -217,8 +217,10 @@ class PlayListModel(QtCore.QAbstractTableModel):
                     d = {}
                     for col, key in enumerate(key_list):
                         d[key] = csv_d[col]
-                    d['gain_src'] = float(d['gain_src'])
-                    d['gain_fir'] = float(d['gain_fir'])
+                    if d['gain_src'] != '':
+                        d['gain_src'] = float(d['gain_src'])
+                    if d['gain_fir'] != '':
+                        d['gain_fir'] = float(d['gain_fir'])
                     d['peak'] = float(d['peak'])
                     d['playmark'] = ''
                     d['disp_src'] = self.dispname(d['path2src'])
@@ -283,7 +285,9 @@ class PlayListModel(QtCore.QAbstractTableModel):
         # replace if there are selections and
         # only one file (wav or npy) is dropped
         elif indexes_sel and len(urls_wav) + len(urls_npy) == 1:
-            self._replace(urls_wav, urls_npy, indexes_sel)
+            ret = self._replace(urls_wav, urls_npy, indexes_sel)
+            if ret:
+                self.reset_peak(indexes_sel)
         
         # add all combination if no selection
         else:
@@ -302,10 +306,12 @@ class PlayListModel(QtCore.QAbstractTableModel):
             for row in rows_sel:
                 self.data[row]['path2src'] = urls_wav[0]
                 self.data[row]['disp_src'] = self.dispname(urls_wav[0])
+                self.data[row]['gain_src'] = 1
         elif urls_npy:
             for row in rows_sel:
                 self.data[row]['path2fir'] = urls_npy[0]
                 self.data[row]['disp_fir'] = self.dispname(urls_npy[0])
+                self.data[row]['gain_fir'] = 1
         
         # detect playing item replacement and emit signal
         # (Then the slot side shoud stop playing)
@@ -321,7 +327,7 @@ class PlayListModel(QtCore.QAbstractTableModel):
             col = self.display_keys.index('disp_fir')
 
         topLeft = self.index(min(rows_sel), col)
-        bottomRight = self.index(max(rows_sel), col)
+        bottomRight = self.index(max(rows_sel), 5)
         self.dataChanged.emit(topLeft, bottomRight)
         return True
 
@@ -334,10 +340,10 @@ class PlayListModel(QtCore.QAbstractTableModel):
                     'playmark': '',
                     'path2src': url,
                     'disp_src': self.dispname(url),
+                    'gain_src': 1,
                     'path2fir': '',
                     'disp_fir': '',
-                    'gain_fir': 1,
-                    'gain_src': 1,
+                    'gain_fir': '',
                     'peak': 0
                     }
                 new_data.append(d)
@@ -348,10 +354,10 @@ class PlayListModel(QtCore.QAbstractTableModel):
                     'playmark': '',
                     'path2src': '',
                     'disp_src': '',
+                    'gain_src': '',
                     'path2fir': url,
                     'disp_fir': self.dispname(url),
                     'gain_fir': 1,
-                    'gain_src': 1,
                     'peak': 0
                     }
                 new_data.append(d)
@@ -363,10 +369,10 @@ class PlayListModel(QtCore.QAbstractTableModel):
                         'playmark': '',
                         'path2src': url_wav,
                         'disp_src': self.dispname(url_wav),
+                        'gain_src': 1,
                         'path2fir': url_npy,
                         'disp_fir': self.dispname(url_npy),
                         'gain_fir': 1,
-                        'gain_src': 1,
                         'peak': 0
                         }
                     new_data.append(d)
@@ -426,10 +432,70 @@ class PlayListModel(QtCore.QAbstractTableModel):
         
         self.selectedItemMoved.emit([], index_sort)
         
-    def reset_peak(self, index):
+    def reset_peak(self, indexes_sel):
+        for index in indexes_sel:
+            row, col = index.row(), index.column()
+            if col != 5:
+                continue
+            self.data[row][self.display_keys[col]] = 0
+            self.dataChanged.emit(index, index)
+    
+    def toggle_src_gain_0or1(self, index):
         row, col = index.row(), index.column()
-        self.data[row][self.display_keys[col]] = 0
-        self.dataChanged.emit(index, index)
+
+        gain = self.data[row][self.display_keys[col]]
+        if gain != '':
+            if gain == 1:
+                self.data[row][self.display_keys[col]] = 0
+            else:
+                self.data[row][self.display_keys[col]] = 1
+            self.dataChanged.emit(index, index)
+
+    def toggle_fir_gain_0or1(self, index):
+        row, col = index.row(), index.column()
+
+        gain = self.data[row][self.display_keys[col]]
+        if gain != '':
+            if gain == 1:
+                self.data[row][self.display_keys[col]] = 0
+            else:
+                self.data[row][self.display_keys[col]] = 1
+            self.dataChanged.emit(index, index)
+
+    def adjust_gain(self, step, index, indexes_sel):
+
+        # adjust target
+        row_point = index.row()
+        rows_sel = list({idx.row() for idx in indexes_sel})
+
+        if row_point in rows_sel:
+            rows_target = rows_sel
+        else:
+            rows_target = [row_point]
+
+        col_target = index.column()
+
+        # adjust
+        val = 10 ** (step / 20)
+        key = self.display_keys[col_target]
+        for row in rows_target:
+            gain = self.data[row][key]
+            if gain == '':
+                return
+            if gain == 0 and step > 0:
+                self.data[row][key] = 0.0001
+                self.data[row]['peak'] = 0
+            else:
+                self.data[row][key] *= val
+                self.data[row]['peak'] *= val
+
+            # update view
+            topLeft = self.index(row, col_target)
+            bottomRight = self.index(row, 5)
+            self.dataChanged.emit(topLeft, bottomRight)
+
+
+
 
     
 class DrawLineStyle(QtWidgets.QProxyStyle):
@@ -470,11 +536,11 @@ class PlayListView(QtWidgets.QTableView):
         hh = self.horizontalHeader()
         hh.setMinimumSectionSize(15)
         hh.resizeSection(0, 24)
-        hh.resizeSection(1, 300)    
-        hh.resizeSection(2, 300)    
-        hh.resizeSection(3, 40)    
-        hh.resizeSection(4, 40)    
-        hh.resizeSection(4, 40)    
+        hh.resizeSection(1, 300)
+        hh.resizeSection(2, 300)
+        hh.resizeSection(3, 48)
+        hh.resizeSection(4, 48)
+        hh.resizeSection(4, 40)
         hh.setStretchLastSection(True)
         hh.setDefaultAlignment(QtCore.Qt.AlignLeft)
         self.verticalHeader().setDefaultSectionSize(21) # default row height
@@ -500,7 +566,6 @@ class PlayListView(QtWidgets.QTableView):
         # double clicked
         self.doubleClicked.connect(self.double_click_action)
         
-
     def dragEnterEvent(self, event):
         print('dragEnterEvent')
         data = event.mimeData()
@@ -526,6 +591,23 @@ class PlayListView(QtWidgets.QTableView):
             self.clearSelection()
             
         return super().dropEvent(event)
+
+
+    def wheelEvent(self, event):
+        
+        # gain adjustment
+        pos = event.pos()
+        if self.columnAt(pos.x()) in [3, 4]:
+            step = np.sign(event.angleDelta().y())
+            if step != 0:
+                if event.modifiers() == QtCore.Qt.ControlModifier:
+                    step *= 0.1 # fine step
+                index = self.indexAt(pos)
+                indexes_sel = self.selectedIndexes()
+                self.playlistmodel.adjust_gain(step, index, indexes_sel)
+                event.accept()
+
+        super().wheelEvent(event)
     
 
     def hideSortIndicator(self):
@@ -563,18 +645,16 @@ class PlayListView(QtWidgets.QTableView):
         if col <= 2:
             self.start_playing.emit(index.row())
 
-        # edit source gain
+        # source gain
         elif col == 3:
-            #self.edit_gain_src()
-            #self.edit(index)
-            pass
+            self.playlistmodel.toggle_src_gain_0or1(index)
         
-        # edit FIR gain
+        # FIR gain
         elif col == 4:
-            #self.edit_gain_fir()
-            #self.edit(index)
-            pass
+            self.playlistmodel.toggle_fir_gain_0or1(index)
         
         # reset peak
         elif col == 5:
-            self.playlistmodel.reset_peak(index)
+            self.playlistmodel.reset_peak([index])
+
+

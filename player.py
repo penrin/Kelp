@@ -218,12 +218,9 @@ class WavGenerator:
         else:
             raise Exception ('Unsupported wave format')
         
-        # config['gain_src'] can be changed on the GUI side
-        self.gain_src = config['gain_src']
-
-        
     def __del__(self):
-        self.wf.close()
+        if 'ws' in locals():
+            self.wf.close()
 
     def callback(self, in_data, frame_count, time_info, status):
         if self.wf.tell() == self.nframes:
@@ -240,8 +237,8 @@ class WavGenerator:
             data = self.buffer2float(frames)
 
             # gain                
-            data *= self.gain_src
-
+            data *= self.config['gain_src']
+            
             # clipping
             self._clip(data)
 
@@ -298,10 +295,6 @@ class ConvGenerator(WavGenerator):
             self.nchannels_out = fir.shape[0]
         else:
             raise Exception('Invalid FIR shape')
-
-        # config['gain_fir'] can be changed on the GUI side
-        self.gain_fir = config['gain_fir']
-
     
     def callback(self, in_data, frame_count, time_info, status):
         
@@ -310,7 +303,7 @@ class ConvGenerator(WavGenerator):
         data_in = self.buffer2float(frames)
         
         # gain (source)
-        data_in *= self.gain_src
+        data_in *= self.config['gain_src']
         
         # convolution
         data_in = data_in.reshape([self.nchannels_src, -1], order='F')
@@ -321,7 +314,7 @@ class ConvGenerator(WavGenerator):
             return b'', pyaudio.paComplete
 
         # gain (FIR)
-        data_out *= self.gain_fir
+        data_out *= self.config['gain_fir']
 
         # clipping
         self._clip(data_out)
