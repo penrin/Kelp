@@ -48,12 +48,30 @@ class PlayListModel(QtCore.QAbstractTableModel):
         return len(self.header)
 
     def data(self, index, role):
+
         if role == QtCore.Qt.DisplayRole:
             row, col = index.row(), index.column()
             # gain_src, gain_fir, peak
             if col > 2: # 2 is self.header.index('SG') - 1
                 return '%.1f' % self.data[row][self.display_keys[col]]
             return self.data[row][self.display_keys[col]]
+
+        #if role == QtCore.Qt.TextAlignmentRole and index.column() > 2:
+        #    return QtCore.Qt.AlignRight
+
+
+        # peak over 0 dBFS -> Red & Italic
+        if role == QtCore.Qt.ForegroundRole and index.column() == 5:
+            peak = self.data[index.row()][self.display_keys[5]]
+            if peak > 0:
+                return QtGui.QColor('red')
+        elif role == QtCore.Qt.FontRole and index.column() == 5:
+            peak = self.data[index.row()][self.display_keys[5]]
+            if peak > 0:
+                font = QtGui.QFont()
+                font.setItalic(True)
+                return font
+        
 
     def headerData(self, section, orientation, role):
         if role == QtCore.Qt.DisplayRole:
