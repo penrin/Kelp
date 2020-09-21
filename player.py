@@ -298,6 +298,11 @@ class ConvGenerator(WavGenerator):
         if fir.ndim == 1:
             self.os = OverlapSave(fir, chunksize, self.nchannels_src, 'float')
         elif fir.ndim == 3:
+            if fir.shape[1] != self.nchannels_src:
+                msg = 'channel mismatch: source %d-out >> FIR %d-in'\
+                                        % (self.nchannels_src, fir.shape[1])
+                raise Exception(msg)
+
             self.os = OverlapSaveMIMO(fir, chunksize, 'float')
             self.nchannels_out = fir.shape[0]
         else:
