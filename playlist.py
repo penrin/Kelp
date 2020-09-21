@@ -440,27 +440,29 @@ class PlayListModel(QtCore.QAbstractTableModel):
             self.data[row][self.display_keys[col]] = 0
             self.dataChanged.emit(index, index)
     
-    def toggle_src_gain_0or1(self, index):
+    def toggle_gain_01(self, index):
         row, col = index.row(), index.column()
 
         gain = self.data[row][self.display_keys[col]]
         if gain != '':
-            if gain == 1:
+            if gain == 0:
+                self.data[row][self.display_keys[col]] = 1
+                self.dataChanged.emit(index, index)
+                return
+
+            elif gain == 1:
                 self.data[row][self.display_keys[col]] = 0
+                self.data[row][self.display_keys[5]] = 0
+
             else:
                 self.data[row][self.display_keys[col]] = 1
+                self.data[row][self.display_keys[5]] /= gain
+                
             self.dataChanged.emit(index, index)
+            index_peak = self.index(row, 5)
+            self.dataChanged.emit(index_peak, index_peak)
 
-    def toggle_fir_gain_0or1(self, index):
-        row, col = index.row(), index.column()
-
-        gain = self.data[row][self.display_keys[col]]
-        if gain != '':
-            if gain == 1:
-                self.data[row][self.display_keys[col]] = 0
-            else:
-                self.data[row][self.display_keys[col]] = 1
-            self.dataChanged.emit(index, index)
+        
 
     def adjust_gain(self, step, index, indexes_sel):
 
@@ -647,11 +649,11 @@ class PlayListView(QtWidgets.QTableView):
 
         # source gain
         elif col == 3:
-            self.playlistmodel.toggle_src_gain_0or1(index)
+            self.playlistmodel.toggle_gain_01(index)
         
         # FIR gain
         elif col == 4:
-            self.playlistmodel.toggle_fir_gain_0or1(index)
+            self.playlistmodel.toggle_gain_01(index)
         
         # reset peak
         elif col == 5:
