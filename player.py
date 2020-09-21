@@ -240,19 +240,18 @@ class WavGenerator:
             data *= self.config['gain_src']
             
             # clipping
-            self._clip(data)
+            self._detect_peak(data)
 
             # convert to binary
             out_data = data.astype(np.float32).tostring()
 
             return out_data, pyaudio.paContinue
 
-    def _clip(self, data):
+    def _detect_peak(self, data):
         peak = np.max(np.abs(data))
         if peak > self.config['peak']:
             self.config['peak'] = peak
             self.peak_updated.emit()
-        np.clip(data, -1, 1, out=data)
         
     def set_pos(self, pos):
         self.wf.setpos(pos)
@@ -317,7 +316,7 @@ class ConvGenerator(WavGenerator):
         data_out *= self.config['gain_fir']
 
         # clipping
-        self._clip(data_out)
+        self._detect_peak(data_out)
         
         # output
         return data_out.reshape(-1, order='F').tostring(), pyaudio.paContinue
