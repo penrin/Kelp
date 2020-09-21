@@ -3,13 +3,15 @@ import glob
 import csv
 import copy
 from PyQt5 import QtWidgets, QtGui, QtCore
+import numpy as np
+
 
 class PlayListModel(QtCore.QAbstractTableModel):
     
     reordered = QtCore.pyqtSignal()
     selectedItemMoved = QtCore.pyqtSignal(list, list)
     playingItemReplaced = QtCore.pyqtSignal()
-
+    
     def __init__(self, parent=None):
         super().__init__(parent)
 
@@ -51,9 +53,10 @@ class PlayListModel(QtCore.QAbstractTableModel):
 
         if role == QtCore.Qt.DisplayRole:
             row, col = index.row(), index.column()
-            # gain_src, gain_fir, peak
+            # gain_src, gain_fir, peak -> show in dB
             if col > 2: # 2 is self.header.index('SG') - 1
-                return '%.1f' % self.data[row][self.display_keys[col]]
+                value = self.data[row][self.display_keys[col]]
+                return '%.1f' % (20 * np.log10(value))
             return self.data[row][self.display_keys[col]]
 
         #if role == QtCore.Qt.TextAlignmentRole and index.column() > 2:
@@ -63,11 +66,11 @@ class PlayListModel(QtCore.QAbstractTableModel):
         # peak over 0 dBFS -> Red & Italic
         if role == QtCore.Qt.ForegroundRole and index.column() == 5:
             peak = self.data[index.row()][self.display_keys[5]]
-            if peak > 0:
+            if peak > 1:
                 return QtGui.QColor('red')
         elif role == QtCore.Qt.FontRole and index.column() == 5:
             peak = self.data[index.row()][self.display_keys[5]]
-            if peak > 0:
+            if peak > 1:
                 font = QtGui.QFont()
                 font.setItalic(True)
                 return font
@@ -88,47 +91,17 @@ class PlayListModel(QtCore.QAbstractTableModel):
         flags |= QtCore.Qt.ItemIsSelectable
         #flags |= QtCore.Qt.ItemIsEditable
         flags |= QtCore.Qt.ItemIsDragEnabled
+        
+        if index.column() in [3, 4]: # gain_src and gain_fir
+            flags |= QtCore.Qt.ItemIsEditable
+
         if not index.isValid(): # if not children
             flags |= QtCore.Qt.ItemIsDropEnabled
         return flags
     
     def supportedDropActions(self):
         return QtCore.Qt.CopyAction | QtCore.Qt.MoveAction
-    '''
-    def setData(self, index, value, role):
-        if (role == QtCore.Qt.EditRole) or (role == QtCore.Qt.DisplayRole):
-            row, col = index.row(), index.column()
-            print('setData', row, col)
-            self.data[row][self.display_keys[col]] = value
-            #self.dataChanged.emit(index, index)
-            return True
-        return False
-     
-    def insertRows(self, row, count, index=QtCore.QModelIndex()):
-        print('insert', row, count)
-        first, last = row, row + count - 1
-        self.beginInsertRows(index, first, last)
-        empty = {
-                'playmark': '',
-                'disp_src': '',
-                'disp_fir': '',
-                'source_gain': 0,
-                'gain_fir': 0,
-                'peak': '-inf'
-                }
-        new = [empty for _ in range(count)]
-        self.data[:row] += new
-        self.endInsertRows()
-        return True
     
-    def removeRows(self, row, count, index=QtCore.QModelIndex()):
-        print('remove', row, count)
-        first, last = row, row + count - 1
-        self.beginRemoveRows(index, first, last)
-        del self.data[row:row+count]
-        self.endRemoveRows()
-        return True
-    '''
     def insertRows(self, row, count, index=QtCore.QModelIndex()):
         print('insertRows called') # do nothing
         return True
@@ -363,9 +336,9 @@ class PlayListModel(QtCore.QAbstractTableModel):
                     'disp_src': self.dispname(url),
                     'path2fir': '',
                     'disp_fir': '',
-                    'gain_fir': 0,
-                    'gain_src': 0,
-                    'peak': float('-inf')
+                    'gain_fir': 1,
+                    'gain_src': 1,
+                    'peak': 0
                     }
                 new_data.append(d)
 
@@ -377,9 +350,9 @@ class PlayListModel(QtCore.QAbstractTableModel):
                     'disp_src': '',
                     'path2fir': url,
                     'disp_fir': self.dispname(url),
-                    'gain_fir': 0,
-                    'gain_src': 0,
-                    'peak': float('-inf')
+                    'gain_fir': 1,
+                    'gain_src': 1,
+                    'peak': 0
                     }
                 new_data.append(d)
 
@@ -392,9 +365,9 @@ class PlayListModel(QtCore.QAbstractTableModel):
                         'disp_src': self.dispname(url_wav),
                         'path2fir': url_npy,
                         'disp_fir': self.dispname(url_npy),
-                        'gain_fir': 0,
-                        'gain_src': 0,
-                        'peak': float('-inf')
+                        'gain_fir': 1,
+                        'gain_src': 1,
+                        'peak': 0
                         }
                     new_data.append(d)
         self.insert_data(new_data)
@@ -453,6 +426,10 @@ class PlayListModel(QtCore.QAbstractTableModel):
         
         self.selectedItemMoved.emit([], index_sort)
         
+    def reset_peak(self, index):
+        row, col = index.row(), index.column()
+        self.data[row][self.display_keys[col]] = 0
+        self.dataChanged.emit(index, index)
 
     
 class DrawLineStyle(QtWidgets.QProxyStyle):
@@ -475,6 +452,8 @@ class DrawLineStyle(QtWidgets.QProxyStyle):
 
 
 class PlayListView(QtWidgets.QTableView):
+
+    start_playing = QtCore.pyqtSignal(int)
 
     def __init__(self, playlistmodel, parent=None):
         super().__init__(parent)
@@ -518,6 +497,8 @@ class PlayListView(QtWidgets.QTableView):
         self.playlistmodel.reordered.connect(self.hideSortIndicator)
         self.playlistmodel.selectedItemMoved.connect(self.move_selection)
         
+        # double clicked
+        self.doubleClicked.connect(self.double_click_action)
         
 
     def dragEnterEvent(self, event):
@@ -576,4 +557,24 @@ class PlayListView(QtWidgets.QTableView):
             print('set_selected:', rows_sel)
 
 
+    def double_click_action(self, index):
+        col = index.column()
         
+        if col <= 2:
+            self.start_playing.emit(index.row())
+
+        # edit source gain
+        elif col == 3:
+            #self.edit_gain_src()
+            #self.edit(index)
+            pass
+        
+        # edit FIR gain
+        elif col == 4:
+            #self.edit_gain_fir()
+            #self.edit(index)
+            pass
+        
+        # reset peak
+        elif col == 5:
+            self.playlistmodel.reset_peak(index)

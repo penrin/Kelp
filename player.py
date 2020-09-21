@@ -219,11 +219,8 @@ class WavGenerator:
             raise Exception ('Unsupported wave format')
         
         # config['gain_src'] can be changed on the GUI side
-        self.gain_src_dB = config['gain_src']
-        self.gain_src = 10 ** (self.gain_src_dB / 20)
+        self.gain_src = config['gain_src']
 
-        # peak
-        self.peak = 10 ** (config['peak'] / 20)
         
     def __del__(self):
         self.wf.close()
@@ -242,11 +239,6 @@ class WavGenerator:
             # convert to numpy array
             data = self.buffer2float(frames)
 
-            # detect config['gain_src'] changes and recalculate linear gain
-            if self.gain_src_dB != self.config['gain_src']:
-                self.gain_src_dB = self.config['gain_src']
-                self.gain_src = 10 ** (self.gain_src_dB / 20)
-
             # gain                
             data *= self.gain_src
 
@@ -260,9 +252,8 @@ class WavGenerator:
 
     def _clip(self, data):
         peak = np.max(np.abs(data))
-        if peak > self.peak:
-            self.peak = peak
-            self.config['peak'] = 20 * np.log10(peak)
+        if peak > self.config['peak']:
+            self.config['peak'] = peak
             self.peak_updated.emit()
         np.clip(data, -1, 1, out=data)
         
@@ -309,8 +300,7 @@ class ConvGenerator(WavGenerator):
             raise Exception('Invalid FIR shape')
 
         # config['gain_fir'] can be changed on the GUI side
-        self.gain_fir_dB = config['gain_fir']
-        self.gain_fir = 10 ** (self.gain_fir_dB / 20)
+        self.gain_fir = config['gain_fir']
 
     
     def callback(self, in_data, frame_count, time_info, status):
@@ -320,9 +310,6 @@ class ConvGenerator(WavGenerator):
         data_in = self.buffer2float(frames)
         
         # gain (source)
-        if self.gain_src_dB != self.config['gain_src']:
-            self.gain_src_dB = self.config['gain_src']
-            self.gain_src = 10 ** (self.gain_src_dB / 20)
         data_in *= self.gain_src
         
         # convolution
@@ -334,9 +321,6 @@ class ConvGenerator(WavGenerator):
             return b'', pyaudio.paComplete
 
         # gain (FIR)
-        if self.gain_fir_dB != self.config['gain_fir']:
-            self.gain_fir_dB = self.config['gain_fir']
-            self.gain_fir = 10 ** (self.gain_fir_dB / 20)
         data_out *= self.gain_fir
 
         # clipping
@@ -361,9 +345,9 @@ if __name__ == '__main__':
     config = {
         'path2src': '../source/hato.wav',
         'path2fir': '',
-        'gain_fir': 0,
-        'gain_src': 0,
-        'peak': None,
+        'gain_fir': 1,
+        'gain_src': 1,
+        'peak': 0,
     }
     p.set_config(config)
     '''

@@ -120,7 +120,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.player.stream_ended.connect(self.play_next)
         
         # double clock the playlist item
-        self.playlistview.doubleClicked.connect(self.play)
+        #self.playlistview.doubleClicked.connect(self.play)
+        self.playlistview.start_playing.connect(self._play_row)
 
         # set device
         self.combo_device.popuped.connect(self.update_device_combo)
@@ -136,7 +137,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # update peak
         self.player.peak_updated.connect(self.update_peak)
-        
+
 
     def eventFilter(self, obj, event):
         # This function is called before the other object-specific event
