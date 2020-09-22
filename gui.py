@@ -213,9 +213,20 @@ class MainWindow(QtWidgets.QMainWindow):
             self.label_state.setText('Player Stopped\n%s' % e)
             self.playlistmodel.set_errormark(row)
             return
-        
-        text = 'Source: %s\nFIR: %s' % (data['disp_src'], data['disp_fir'])
+
+        # label
+        info = self.player.get_generator_info()
+        text = 'Source: %d ch, %d Hz, %s\n'\
+                % (info['ch_src'], info['fs'], data['disp_src'])
+
+        if info['mode'] == 'SISO':
+            text += 'FIR: single, %s' % data['disp_fir']
+        elif info['mode'] == 'MIMO':
+            shape = info['fir_shape']
+            text += 'FIR: %din/%dout, %s'\
+                    % (shape[1], shape[0], data['disp_fir'])
         self.label_state.setText(text)
+
         try:
             state = self.player.play()
         except Exception as e:

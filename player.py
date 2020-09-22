@@ -191,10 +191,24 @@ class Player(QtCore.QObject):
     def get_nframes(self):
         return self.generator.nframes
 
+    def get_generator_info(self):
+        info = {}
+        info['ch_src'] = self.generator.nchannels_src
+        info['ch_out'] = self.generator.nchannels_out
+        info['fs'] = self.generator.fs
+        info['mode'] = self.generator.mode
+        if hasattr(self.generator, 'fir_shape'):
+            info['fir_shape'] = self.generator.fir_shape
+        else:
+            info['fir_shape'] = None
+            
+        return info
+
 
 class WavGenerator:
-
+    
     def __init__(self, config, stream_ended, peak_updated):
+        self.mode = 'direct'
         self.config = config
         self.stream_ended = stream_ended # Qt Signal
         self.peak_updated = peak_updated # Qt Signal
@@ -280,10 +294,12 @@ class ConvGenerator(WavGenerator):
         
         # try to import FIR filter
         fir = np.load(config['path2fir'], 'r')
+        self.fir_shape = fir.shape
 
         # set convolver
         if fir.ndim == 1:
             self.os = OverlapSave(fir, chunksize, self.nchannels_src, 'float')
+            self.mode = 'SISO'
         elif fir.ndim == 3:
             if fir.shape[1] != self.nchannels_src:
                 msg = 'channel mismatch: source %d-out >> FIR %d-in'\
@@ -292,6 +308,7 @@ class ConvGenerator(WavGenerator):
 
             self.os = OverlapSaveMIMO(fir, chunksize, 'float')
             self.nchannels_out = fir.shape[0]
+            self.mode = 'MIMO'
         else:
             raise Exception('Invalid FIR shape')
     
