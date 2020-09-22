@@ -134,6 +134,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # stop playing when replacing item being playing
         self.playlistmodel.playingItemReplaced.connect(self.stop)
+        self.playlistmodel.playingItemRemoved.connect(self.stop)
 
         # update peak
         self.player.peak_updated.connect(self.update_peak)
@@ -401,15 +402,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def remove_selected(self):
         indexes_sel = self.playlistview.selectedIndexes()
-        
-        # if remove playing item, stop playing
-        rows = list({index.row() for index in indexes_sel})
-        for row in rows:
-            d = self.playlistmodel.get_data(row)
-            if d['playmark'] == self.playlistmodel.playmark:
-                self.stop()
-
-        # remove
         self.playlistmodel.remove_selected(indexes_sel)
 
 

@@ -11,6 +11,7 @@ class PlayListModel(QtCore.QAbstractTableModel):
     reordered = QtCore.pyqtSignal()
     selectedItemMoved = QtCore.pyqtSignal(list, list)
     playingItemReplaced = QtCore.pyqtSignal()
+    playingItemRemoved = QtCore.pyqtSignal()
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -394,16 +395,45 @@ class PlayListModel(QtCore.QAbstractTableModel):
         return True
     
     def remove_data(self, row, index=QtCore.QModelIndex()):
+        if self.data[row]['playmark'] == self.playmark:
+            self.playingItemRemoved.emit()
         print('remove_row:', row)
         self.beginRemoveRows(index, row, row)
         del self.data[row]
         self.endRemoveRows()
         return True
 
+    def clear_fir(self, rows):
+        for row in rows:
+            self.data[row]['path2fir'] = ''
+            self.data[row]['disp_fir'] = ''
+            self.data[row]['gain_fir'] = 0
+            self.data[row]['peak'] = 0
+            if self.data[row]['playmark'] == self.playmark:
+                self.playingItemReplaced.emit()
+        topLeft = self.index(min(rows), 2)
+        bottomRight = self.index(max(rows), 5)
+        self.dataChanged.emit(topLeft, bottomRight)
+
     def remove_selected(self, indexes_sel):
+        # remove FIRs if selected items have both source and FIR.
+        # remove rows if selected items have either source or FIR.
         rows_sel = list({index.row() for index in indexes_sel})
-        for row in sorted(rows_sel, reverse=True):
-            self.remove_data(row)
+        
+        # rows which have FIR
+        rows_own_fir = [r for r in rows_sel if self.data[r]['path2fir'] != '']
+
+        # selected items have FIR
+        if rows_own_fir:
+            self.clear_fir(rows_own_fir)            
+            for row in sorted(rows_own_fir, reverse=True):
+                if self.data[row]['path2src'] == '':
+                    self.remove_data(row)
+
+        # selected items have no FIR
+        else:
+            for row in sorted(rows_sel, reverse=True):
+                self.remove_data(row)
     
     def sort(self, col, order):
         '''
