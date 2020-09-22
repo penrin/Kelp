@@ -1,9 +1,7 @@
 Kelp
 ====
 
-FIR Convolution Audio Player with GUI
-
-
+FIR 畳み込み機能つきオーディオプレーヤ
 
 
 Requirements
@@ -16,13 +14,12 @@ Requirements
 
 
 
-
 File format
 -----------
 
-### Sound Source
+### 音源
 
-WAVE file (16/24/32 bit integer) format is supported.
+WAVE ファイル (16/24/32 bit 整数型) に対応。
 
 
 ### FIR
@@ -43,8 +40,56 @@ The axes 0, 1, 2 should be output channels, input channels, and taps, respective
 If the number of sound source channels and the number of FIR input channels do not match, playback will stop.
 
 
+操作
+---
+
+* **プレイリスト構築**
+–
+
+* **ゲイン調整**
+–
+
+* **ピークリセット**
+–
+
+* **Escape Key**
+–
+
+* **Delete/Backspace Key**
+–
+
+* **Space Key**
+–
+
+* **Enter Key**
+–
+
+* **⌘+S Key**
+–
+
+* **⌘+R Key**
+–
+
+* **⌘+Q Key**
+–
 
 
+Automator app 作成
+-----------------
+
+* Start Automator.app
+* Choose "Application"
+* Choose "Run Shell Script"
+* For example, write the folowing scripts:
+
+```
+path2kelp="/path/to/kelp"
+path2python="/path/to/python"
+${path2python}/python ${PATH2KELP}/gui.py > ${PATH2KELP}/log.txt
+```
+
+* Save the recipe
+* 
 
 
 
