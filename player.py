@@ -338,7 +338,9 @@ class ConvGenerator(WavGenerator):
         # output
         return data_out.reshape(-1, order='F').tostring(), pyaudio.paContinue
 
-
+    def set_pos(self, pos):
+        self.os.clear_buffer()
+        self.wf.setpos(pos)
 
 
     

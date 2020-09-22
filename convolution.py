@@ -170,7 +170,7 @@ class OverlapSaveMIMO:
     
     def clear_buffer(self):
         for c_ in self.c:
-            c_.out_buf[:] = 0
+            c_.out_f_buf[:] = 0
 
 
 class _ConvolverMIMO:
