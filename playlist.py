@@ -547,6 +547,23 @@ class DrawLineStyle(QtWidgets.QProxyStyle):
         super().drawPrimitive(element, option, painter, widget)
 
 
+class CustomDelegate(QtWidgets.QStyledItemDelegate):
+    def __init__(self, tableview):
+        super(CustomDelegate, self).__init__()
+        
+        self.grid_pen = QtGui.QPen(
+                QtGui.QColor('silver'), 0, tableview.gridStyle()
+                )
+
+
+    def paint(self, painter, option, index):
+        super().paint(painter, option, index)
+
+        if index.column() == 2:
+            old_pen = painter.pen()
+            painter.setPen(self.grid_pen)
+            painter.drawLine(option.rect.topRight(), option.rect.bottomRight())
+            painter.setPen(old_pen)
 
 
 class PlayListView(QtWidgets.QTableView):
@@ -561,7 +578,6 @@ class PlayListView(QtWidgets.QTableView):
         self.playlistmodel = playlistmodel
         
         # appearance
-        self.setShowGrid(False)
         self.setAlternatingRowColors(True)
         self.verticalHeader().setVisible(False)
 
@@ -589,6 +605,10 @@ class PlayListView(QtWidgets.QTableView):
         # draw line across the entire row
         self.setStyle(DrawLineStyle())
 
+        # draw grid between FIR and SG
+        self.setShowGrid(False)
+        self.setItemDelegate(CustomDelegate(self))
+
         # sort
         self.setSortingEnabled(True)
         hh.setSortIndicator(-1, QtCore.Qt.AscendingOrder)
@@ -597,7 +617,8 @@ class PlayListView(QtWidgets.QTableView):
         
         # double clicked
         self.doubleClicked.connect(self.double_click_action)
-        
+    
+    
     def dragEnterEvent(self, event):
         print('dragEnterEvent')
         data = event.mimeData()
