@@ -235,6 +235,21 @@ class PlayListModel(QtCore.QAbstractTableModel):
             print('import_csv:', e)
         
         return []
+    
+    
+    def rollback_savepoint(self):
+        new_data = self.import_csv(self.savefile)
+
+        # delete current data
+        self.playingItemRemoved.emit()
+        index = QtCore.QModelIndex()
+        self.beginRemoveRows(index, 0, self.rowCount())
+        del self.data[:]
+        self.endRemoveRows()
+        
+        # add new data
+        self.insert_data(new_data)
+        
 
     def dispname(self, name):
         # format filename for display
@@ -407,7 +422,7 @@ class PlayListModel(QtCore.QAbstractTableModel):
         for row in rows:
             self.data[row]['path2fir'] = ''
             self.data[row]['disp_fir'] = ''
-            self.data[row]['gain_fir'] = 0
+            self.data[row]['gain_fir'] = ''
             self.data[row]['peak'] = 0
             if self.data[row]['playmark'] == self.playmark:
                 self.playingItemReplaced.emit()

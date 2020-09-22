@@ -171,6 +171,10 @@ class MainWindow(QtWidgets.QMainWindow):
             elif key == QtCore.Qt.Key_S and mod == QtCore.Qt.ControlModifier:
                 self.playlistmodel.save_csv(self.playlistmodel.savefile)
                 
+            # rollback previous save point
+            elif key == QtCore.Qt.Key_R and mod == QtCore.Qt.ControlModifier:
+                self.playlistmodel.rollback_savepoint()
+
             else:
                 return False # continue to default handling
             return True
