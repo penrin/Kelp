@@ -1,8 +1,11 @@
 Kelp
 ====
 
-FIR 畳み込み機能つきオーディオプレーヤ
+FIR 畳み込み機能つきオーディオプレーヤ GUI
 
+```
+% python Kelp/gui.py
+```
 
 Requirements
 ------------
@@ -13,9 +16,8 @@ Requirements
 * PyQt5
 
 
-
-File format
------------
+ファイルフォーマット
+----------------
 
 ### 音源
 
@@ -24,20 +26,21 @@ WAVE ファイル (16/24/32 bit 整数型) に対応。
 
 ### FIR
 
-FIR coefficient data is imported from the `.npy` file, which is standard binary file format in NumPy.
+FIR 係数データは NumPy のバイナリファイルフォーマットで書かれた `.npy` ファイルから読み込みます。
 
-There are two convolution modes that switch according to the dimensions of the FIR data array.
+以下のように２種類の畳み込みモードがあり，FIR データの配列形状に応じて切り替えます：
 
 * **SISO mode with 1D array**
 –
-FIR is treated as a SISO system if its data array has only one dimention. 
-For multi-channel sound sources, FIR is applied in parallel to each channel.
+FIR の次元が 1 の場合は，SISO システムの FIR として扱います。
+多チャンネルの音源信号に対しては，各チャンネルにそれぞれ FIR を適用します。
 
 * **MIMO mode with 3D array**
 –
-FIR is treated as a MIMO/MISO/SIMO system if its data array has three dimentions.
-The axes 0, 1, 2 should be output channels, input channels, and taps, respectively.
-If the number of sound source channels and the number of FIR input channels do not match, playback will stop.
+FIR の次元が 3 の場合は， MIMO/MISO/SIMO システムの FIR として扱います。
+クロストークのある処理ができます。
+0, 1, 2 軸はそれぞれ，出力チャンネル，入力チャンネル，時間タップとします。
+音源のチャンネル数と FIR の入力チャンネル数が一致しない場合，再生できません。
 
 
 操作
@@ -45,37 +48,78 @@ If the number of sound source channels and the number of FIR input channels do n
 
 * **プレイリスト構築**
 –
+`.wav`ファイルや`.npy`ファイルをプレイリスト欄にドロップして音源や FIR をプレイリスト上に構成します。
+複数のファイルをドロップすると，音源とFIRの全ての組み合わせをプレイリストに追加します。
+プレイリスト内のアイテムを選択中に，`.wav`ファイルまたは`.npy`ファイルを１つだけドロップすると，選択中のアイテムが置き換わります。
+選択中のアイテムがない場合は，プレイリスト最後尾に追加されます。
+
+* **プレイリスト並び替え**
+–
+アイテムを選択してドラッグ&ドロップすると，ドロップ位置に移動します。
+各列のヘッダーをクリックしてソートすることもできます。
+
+* **再生デバイス設定**
+–
+右上のコンボボックスで選択します。
+再生中にコンボボックスを開くと，再生が停止するので注意してください。
+
+* **再生・一時停止**
+–
+Play/Pause ボタンで再生・一時停止ができます。
+Space キーでも同様の操作ができます。
+
+* **先頭から再生**
+–
+アイテムのファイル名をダブルクリックすると，それを最初から再生します。
+アイテムを選択して Enter/Return キーでも同様の操作ができます。
+処理的には FIR を再読み込みしています。
+
+* **再生位置変更**
+–
+スライダーのつまみを移動します。
 
 * **ゲイン調整**
 –
+マウスホイールを回すと 1 dB ステップで調整できます。
+⌘キーを押しながらホイールを回すと 0.1 dB ステップになります。
+ダブルクリックで 0 と -inf をトグルします。
 
 * **ピークリセット**
 –
+ダブルクリックします。
 
 * **Escape Key**
 –
+プレイリスト上のアイテムの選択を解除します。
+
+* **⌘+A Key**
+–
+プレイリスト上のアイテムを全選択します。
 
 * **Delete/Backspace Key**
 –
-
-* **Space Key**
-–
-
-* **Enter Key**
-–
+選択したアイテムの FIR を取り除きます。
+FIR がない場合はアイテム自体をプレイリストから取り除きます。
 
 * **⌘+S Key**
 –
+プレイリストをセーブします。
+次回起動時や ⌘+R キーに，セーブしたプレイリストを復帰します。
 
 * **⌘+R Key**
 –
+プレイリストを前回セーブした状態にロールバックします。
 
 * **⌘+Q Key**
 –
+終了します。
 
 
-Automator app 作成
------------------
+
+Automator app
+-------------
+
+macOS で Dock などに置きたい場合は，Automator でシェルスクリプトを実行するアプリを作成するのがシンプルだと思います。手順は以下の通りです。
 
 * Start Automator.app
 * Choose "Application"
@@ -85,16 +129,7 @@ Automator app 作成
 ```
 PATH_PYTHON="/path/to/python"
 PATH_KELP="/path/to/kelp"
-${PATH_PYTHON}/python ${PATH_KELP}/gui.py > ${PATH_KELP}/log.txt
+${PATH_PYTHON}/python ${PATH_KELP}/gui.py $@ > ${PATH_KELP}/log.txt
 ```
 * Save the recipe
 
-
-ToDo
-----------------------------
-
-* Export convolved signal
-* Enrich Help
-* repeat one/all
-* Show indicator when drag and drop files, and drop there
-* show clipped sections in the slider groove
