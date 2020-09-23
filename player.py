@@ -221,7 +221,7 @@ class WavGenerator:
         self.nchannels_src = self.wf.getnchannels()
         self.nchannels_out = self.nchannels_src
 
-        self.bytes_per_frame = self.nchannels_src * 4 # PaFloat32
+        self.bytes_per_frame_src = self.nchannels_src * self.ws
 
         if self.ws == 2:
             self.buffer2float = self.buffer2float_16bit
@@ -243,7 +243,7 @@ class WavGenerator:
         else:
             # read frame
             frames = self.wf.readframes(frame_count)
-            nlack = self.bytes_per_frame * frame_count - len(frames)
+            nlack = self.bytes_per_frame_src * frame_count - len(frames)
             if nlack != 0:
                 frames += b'\x00' * nlack
             
@@ -279,7 +279,7 @@ class WavGenerator:
 
     def buffer2float_24bit(self, frames):
         a8 = np.frombuffer(frames, dtype=np.uint8)
-        tmp = np.zeros((nframes * nchannels_src, 4), dtype=np.uint8)
+        tmp = np.zeros((a8.shape[0] // 3, 4), dtype=np.uint8)
         tmp[:, 1:] = a8.reshape(-1, 3)
         return tmp.view(np.int32)[:, 0] / 2147483648
 
@@ -356,7 +356,7 @@ if __name__ == '__main__':
     # (2) set config
     config = {
         'path2src': '../source/hato.wav',
-        'path2fir': '',
+        'path2fir': '../source/FIR_MINI_HATS.npy',
         'gain_fir': 1,
         'gain_src': 1,
         'peak': 0,
@@ -384,7 +384,7 @@ if __name__ == '__main__':
 
     p.play()
     time.sleep(5)
-    config['gain_src'] = -10
+    config['gain_src'] = 0.5
     time.sleep(5)
 
 
