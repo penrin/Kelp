@@ -265,6 +265,7 @@ class WavGenerator:
         peak = np.max(np.abs(data))
         if peak > self.config['peak']:
             self.config['peak'] = peak
+            self.config['peak_db'] = 20 * np.log10(peak)
             self.peak_updated.emit()
         
     def set_pos(self, pos):

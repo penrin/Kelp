@@ -25,7 +25,7 @@ class PlayListModel(QtCore.QAbstractTableModel):
                 'disp_fir',
                 'gain_src_db',
                 'gain_fir_db',
-                'peak'
+                'peak_db'
                 ]
         
         self.savefile = os.path.dirname(__file__) + '/playlist.csv'
@@ -34,7 +34,7 @@ class PlayListModel(QtCore.QAbstractTableModel):
                 'path2fir',
                 'gain_src_db',
                 'gain_fir_db',
-                'peak'
+                'peak_db'
                 ]
         
         self.data = self.import_csv(self.savefile)
@@ -55,8 +55,6 @@ class PlayListModel(QtCore.QAbstractTableModel):
             
             if col > 2: # 2 is self.header.index('SG') - 1
                 val = self.data[row][self.display_keys[col]]
-                if col == 5: # peak
-                    val = 10 * np.log10(val)
                 if val != '':
                     val = '%.1f' % val
                 return val
@@ -68,12 +66,12 @@ class PlayListModel(QtCore.QAbstractTableModel):
 
         # peak over 0 dBFS -> Red & Italic
         if role == QtCore.Qt.ForegroundRole and index.column() == 5:
-            peak = self.data[index.row()][self.display_keys[5]]
-            if peak > 1:
+            peak_db = self.data[index.row()][self.display_keys[5]]
+            if peak_db > 0:
                 return QtGui.QColor('red')
         elif role == QtCore.Qt.FontRole and index.column() == 5:
-            peak = self.data[index.row()][self.display_keys[5]]
-            if peak > 1:
+            peak_db = self.data[index.row()][self.display_keys[5]]
+            if peak_db > 0:
                 font = QtGui.QFont()
                 font.setItalic(True)
                 return font
@@ -233,7 +231,8 @@ class PlayListModel(QtCore.QAbstractTableModel):
                         d['gain_fir_db'] = float(d['gain_fir_db'])
                         d['gain_fir'] = 10 ** (d['gain_fir_db'] / 20)
 
-                    d['peak'] = float(d['peak'])
+                    d['peak_db'] = float(d['peak_db'])
+                    d['peak'] = 10 ** (d['gain_fir_db'] / 20)
                     d['playmark'] = ''
                     d['disp_src'] = self.dispname(d['path2src'])
                     d['disp_fir'] = self.dispname(d['path2fir'])
@@ -375,7 +374,8 @@ class PlayListModel(QtCore.QAbstractTableModel):
                     'disp_fir': '',
                     'gain_fir': '',
                     'gain_fir_db': '',
-                    'peak': 0
+                    'peak': 0,
+                    'peak_db': -np.inf
                     }
                 new_data.append(d)
 
@@ -391,7 +391,8 @@ class PlayListModel(QtCore.QAbstractTableModel):
                     'disp_fir': self.dispname(url),
                     'gain_fir': 1,
                     'gain_fir_db': 0,
-                    'peak': 0
+                    'peak': 0,
+                    'peak_db': -np.inf
                     }
                 new_data.append(d)
 
@@ -408,7 +409,8 @@ class PlayListModel(QtCore.QAbstractTableModel):
                         'disp_fir': self.dispname(url_npy),
                         'gain_fir': 1,
                         'gain_fir_db': 0,
-                        'peak': 0
+                        'peak': 0,
+                        'peak_db': -np.inf
                         }
                     new_data.append(d)
         self.insert_data(new_data)
@@ -444,6 +446,7 @@ class PlayListModel(QtCore.QAbstractTableModel):
             self.data[row]['gain_fir'] = ''
             self.data[row]['gain_fir_db'] = ''
             self.data[row]['peak'] = 0
+            self.data[row]['peak_db'] = -np.inf
             if self.data[row]['playmark'] == self.playmark:
                 self.playingItemReplaced.emit()
         topLeft = self.index(min(rows), 2)
@@ -502,38 +505,37 @@ class PlayListModel(QtCore.QAbstractTableModel):
             row, col = index.row(), index.column()
             if col != 5:
                 continue
-            self.data[row][self.display_keys[col]] = 0
+            self.data[row]['peak'] = 0
+            self.data[row]['peak_db'] = -np.inf
             self.dataChanged.emit(index, index)
     
     def toggle_gain_01(self, index):
         row, col = index.row(), index.column()
         
-        #
         key_db = self.display_keys[col]
         if key_db == 'gain_src_db':
             key_lin = 'gain_src'
         else:
             key_lin = 'gain_fir'
 
-
-        gain_lin = self.data[row][key_lin]
-        print('toggle gain', gain_lin)
-        if gain_lin != '':
-            if gain_lin == 0:
+        gain_db = self.data[row][key_db]
+        if gain_db != '':
+            if gain_db == -np.inf:
                 self.data[row][key_lin] = 1.
                 self.data[row][key_db] = 0.
                 self.dataChanged.emit(index, index)
                 return
 
-            elif gain_lin == 1:
+            elif gain_db == 0:
                 self.data[row][key_lin] = 0.
                 self.data[row][key_db] = -np.inf
                 self.data[row]['peak'] = 0.
-
+                self.data[row]['peak_db'] = -np.inf
             else:
                 self.data[row][key_lin] = 1.
                 self.data[row][key_db] = 0.
-                self.data[row]['peak'] /= gain_lin
+                self.data[row]['peak_db'] -= gain_db
+                self.data[row]['peak'] = 10 ** (self.data[row]['peak_db'] / 20)
                 
             self.dataChanged.emit(index, index)
             index_peak = self.index(row, 5)
@@ -570,11 +572,13 @@ class PlayListModel(QtCore.QAbstractTableModel):
             if gain_db == -np.inf and step > 0:
                 self.data[row][key_db] = -80.
                 self.data[row][key_lin] = 10 ** (self.data[row][key_db] / 20)
-                self.data[row]['peak'] = 0
+                #self.data[row]['peak'] = 0
+                #self.data[row]['peak_db'] = -np.inf
             else:
                 self.data[row][key_db] += step
                 self.data[row][key_lin] = 10 ** (self.data[row][key_db] / 20)
-                self.data[row]['peak'] *= 10 ** (step / 20)
+                self.data[row]['peak_db'] += step
+                self.data[row]['peak'] = 10 ** (self.data[row]['peak_db'] / 20)
 
             # update view
             topLeft = self.index(row, col_target)
