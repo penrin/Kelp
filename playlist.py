@@ -23,8 +23,8 @@ class PlayListModel(QtCore.QAbstractTableModel):
                 'playmark',
                 'disp_src',
                 'disp_fir',
-                'gain_src',
-                'gain_fir',
+                'gain_src_db',
+                'gain_fir_db',
                 'peak'
                 ]
         
@@ -32,8 +32,8 @@ class PlayListModel(QtCore.QAbstractTableModel):
         self.save_keys = [
                 'path2src',
                 'path2fir',
-                'gain_src',
-                'gain_fir',
+                'gain_src_db',
+                'gain_fir_db',
                 'peak'
                 ]
         
@@ -52,11 +52,13 @@ class PlayListModel(QtCore.QAbstractTableModel):
 
         if role == QtCore.Qt.DisplayRole:
             row, col = index.row(), index.column()
-            # gain_src, gain_fir, peak -> show in dB
+            
             if col > 2: # 2 is self.header.index('SG') - 1
                 val = self.data[row][self.display_keys[col]]
+                if col == 5: # peak
+                    val = 10 * np.log10(val)
                 if val != '':
-                    val = '%.1f' % (20 * np.log10(val))
+                    val = '%.1f' % val
                 return val
             return self.data[row][self.display_keys[col]]
 
@@ -218,10 +220,19 @@ class PlayListModel(QtCore.QAbstractTableModel):
                     d = {}
                     for col, key in enumerate(key_list):
                         d[key] = csv_d[col]
-                    if d['gain_src'] != '':
-                        d['gain_src'] = float(d['gain_src'])
-                    if d['gain_fir'] != '':
-                        d['gain_fir'] = float(d['gain_fir'])
+
+                    if d['gain_src_db'] == '':
+                        d['gain_src'] = ''
+                    else:
+                        d['gain_src_db'] = float(d['gain_src_db'])
+                        d['gain_src'] = 10 ** (d['gain_src_db'] / 20)
+
+                    if d['gain_fir_db'] == '':
+                        d['gain_fir'] = ''
+                    else:
+                        d['gain_fir_db'] = float(d['gain_fir_db'])
+                        d['gain_fir'] = 10 ** (d['gain_fir_db'] / 20)
+
                     d['peak'] = float(d['peak'])
                     d['playmark'] = ''
                     d['disp_src'] = self.dispname(d['path2src'])
@@ -232,7 +243,7 @@ class PlayListModel(QtCore.QAbstractTableModel):
                 print('import_csv:', fname)
                 return data_imported
         except Exception as e:
-            print('import_csv:', e)
+            print('import_csv error:', e)
         
         return []
     
@@ -323,11 +334,13 @@ class PlayListModel(QtCore.QAbstractTableModel):
                 self.data[row]['path2src'] = urls_wav[0]
                 self.data[row]['disp_src'] = self.dispname(urls_wav[0])
                 self.data[row]['gain_src'] = 1
+                self.data[row]['gain_src_db'] = 0
         elif urls_npy:
             for row in rows_sel:
                 self.data[row]['path2fir'] = urls_npy[0]
                 self.data[row]['disp_fir'] = self.dispname(urls_npy[0])
                 self.data[row]['gain_fir'] = 1
+                self.data[row]['gain_fir_db'] = 0
         
         # detect playing item replacement and emit signal
         # (Then the slot side shoud stop playing)
@@ -357,9 +370,11 @@ class PlayListModel(QtCore.QAbstractTableModel):
                     'path2src': url,
                     'disp_src': self.dispname(url),
                     'gain_src': 1,
+                    'gain_src_db': 0,
                     'path2fir': '',
                     'disp_fir': '',
                     'gain_fir': '',
+                    'gain_fir_db': '',
                     'peak': 0
                     }
                 new_data.append(d)
@@ -371,9 +386,11 @@ class PlayListModel(QtCore.QAbstractTableModel):
                     'path2src': '',
                     'disp_src': '',
                     'gain_src': '',
+                    'gain_src_db': '',
                     'path2fir': url,
                     'disp_fir': self.dispname(url),
                     'gain_fir': 1,
+                    'gain_fir_db': 0,
                     'peak': 0
                     }
                 new_data.append(d)
@@ -386,9 +403,11 @@ class PlayListModel(QtCore.QAbstractTableModel):
                         'path2src': url_wav,
                         'disp_src': self.dispname(url_wav),
                         'gain_src': 1,
+                        'gain_src_db': 0,
                         'path2fir': url_npy,
                         'disp_fir': self.dispname(url_npy),
                         'gain_fir': 1,
+                        'gain_fir_db': 0,
                         'peak': 0
                         }
                     new_data.append(d)
@@ -423,6 +442,7 @@ class PlayListModel(QtCore.QAbstractTableModel):
             self.data[row]['path2fir'] = ''
             self.data[row]['disp_fir'] = ''
             self.data[row]['gain_fir'] = ''
+            self.data[row]['gain_fir_db'] = ''
             self.data[row]['peak'] = 0
             if self.data[row]['playmark'] == self.playmark:
                 self.playingItemReplaced.emit()
@@ -487,21 +507,33 @@ class PlayListModel(QtCore.QAbstractTableModel):
     
     def toggle_gain_01(self, index):
         row, col = index.row(), index.column()
+        
+        #
+        key_db = self.display_keys[col]
+        if key_db == 'gain_src_db':
+            key_lin = 'gain_src'
+        else:
+            key_lin = 'gain_fir'
 
-        gain = self.data[row][self.display_keys[col]]
-        if gain != '':
-            if gain == 0:
-                self.data[row][self.display_keys[col]] = 1
+
+        gain_lin = self.data[row][key_lin]
+        print('toggle gain', gain_lin)
+        if gain_lin != '':
+            if gain_lin == 0:
+                self.data[row][key_lin] = 1.
+                self.data[row][key_db] = 0.
                 self.dataChanged.emit(index, index)
                 return
 
-            elif gain == 1:
-                self.data[row][self.display_keys[col]] = 0
-                self.data[row][self.display_keys[5]] = 0
+            elif gain_lin == 1:
+                self.data[row][key_lin] = 0.
+                self.data[row][key_db] = -np.inf
+                self.data[row]['peak'] = 0.
 
             else:
-                self.data[row][self.display_keys[col]] = 1
-                self.data[row][self.display_keys[5]] /= gain
+                self.data[row][key_lin] = 1.
+                self.data[row][key_db] = 0.
+                self.data[row]['peak'] /= gain_lin
                 
             self.dataChanged.emit(index, index)
             index_peak = self.index(row, 5)
@@ -521,20 +553,28 @@ class PlayListModel(QtCore.QAbstractTableModel):
             rows_target = [row_point]
 
         col_target = index.column()
-
+        
+        # key
+        key_db = self.display_keys[col_target]
+        if key_db == 'gain_src_db':
+            key_lin = 'gain_src'
+        else:
+            key_lin = 'gain_fir'
+        
         # adjust
-        val = 10 ** (step / 20)
-        key = self.display_keys[col_target]
         for row in rows_target:
-            gain = self.data[row][key]
-            if gain == '':
+            gain_db = self.data[row][key_db]
+            if gain_db == '':
                 return
-            if gain == 0 and step > 0:
-                self.data[row][key] = 0.0001
+
+            if gain_db == -np.inf and step > 0:
+                self.data[row][key_db] = -80.
+                self.data[row][key_lin] = 10 ** (self.data[row][key_db] / 20)
                 self.data[row]['peak'] = 0
             else:
-                self.data[row][key] *= val
-                self.data[row]['peak'] *= val
+                self.data[row][key_db] += step
+                self.data[row][key_lin] = 10 ** (self.data[row][key_db] / 20)
+                self.data[row]['peak'] *= 10 ** (step / 20)
 
             # update view
             topLeft = self.index(row, col_target)
