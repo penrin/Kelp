@@ -83,14 +83,11 @@ Automator app 作成
 * For example, write the folowing scripts:
 
 ```
-path2kelp="/path/to/kelp"
-path2python="/path/to/python"
-${path2python}/python ${PATH2KELP}/gui.py > ${PATH2KELP}/log.txt
+PATH_PYTHON="/path/to/python"
+PATH_KELP="/path/to/kelp"
+${PATH_PYTHON}/python ${PATH_KELP}/gui.py > ${PATH_KELP}/log.txt
 ```
-
 * Save the recipe
-* 
-
 
 
 ToDo

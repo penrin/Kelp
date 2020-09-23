@@ -30,7 +30,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.initUI()
         self.connect()
         
-        self.count_closecalled = 0 # for cmd+Q call twice the closeEvent (probably Qt Bug)
+        #self.count_closecalled = 0 # for cmd+Q call twice the closeEvent (probably Qt Bug)
 
     def initUI(self):
         
@@ -421,9 +421,11 @@ class MainWindow(QtWidgets.QMainWindow):
 
 
     def closeEvent(self, event):
+        '''
         if self.count_closecalled == 0: # for cmd+Q call twice the closeEvent (probably Qt Bug)
             self.playlistmodel.save_csv(self.playlistmodel.savefile)
         self.count_closecalled += 1
+        '''
         event.accept()
 
     def update_peak(self):
