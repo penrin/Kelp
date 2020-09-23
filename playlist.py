@@ -232,7 +232,8 @@ class PlayListModel(QtCore.QAbstractTableModel):
                         d['gain_fir'] = 10 ** (d['gain_fir_db'] / 20)
 
                     d['peak_db'] = float(d['peak_db'])
-                    d['peak'] = 10 ** (d['gain_fir_db'] / 20)
+                    d['peak'] = 10 ** (d['peak_db'] / 20)
+
                     d['playmark'] = ''
                     d['disp_src'] = self.dispname(d['path2src'])
                     d['disp_fir'] = self.dispname(d['path2fir'])
@@ -676,6 +677,9 @@ class PlayListView(QtWidgets.QTableView):
         
         # double clicked
         self.doubleClicked.connect(self.double_click_action)
+
+        # mouse wheel for gain adjust
+        self.wheel_angle = 0
     
     
     def dragEnterEvent(self, event):
@@ -708,18 +712,20 @@ class PlayListView(QtWidgets.QTableView):
     def wheelEvent(self, event):
         
         # gain adjustment
-        pos = event.pos()
-        if self.columnAt(pos.x()) in [3, 4]:
-            step = np.sign(event.angleDelta().y())
+        index = self.indexAt(event.pos())
+        if (index.column() in [3, 4]) and index.row() >= 0:
+            #self.wheel_angle += event.pixelDelta().y()
+            self.wheel_angle += event.angleDelta().y()
+            step, self.wheel_angle = divmod(self.wheel_angle, 120)
             if step != 0:
                 if event.modifiers() == QtCore.Qt.ControlModifier:
                     step *= 0.1 # fine step
-                index = self.indexAt(pos)
                 indexes_sel = self.selectedIndexes()
                 self.playlistmodel.adjust_gain(step, index, indexes_sel)
                 event.accept()
-
-        super().wheelEvent(event)
+            return
+        
+        return super().wheelEvent(event)
     
 
     def hideSortIndicator(self):
