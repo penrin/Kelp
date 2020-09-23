@@ -282,6 +282,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # now playing
         row_next = self.playlistmodel.get_row_playing() + 1
         if row_next == self.playlistmodel.rowCount():
+            self.stop()
             print('play_next: no next')
             return
 
