@@ -112,8 +112,16 @@ class Player(QtCore.QObject):
     def play(self):
         if self.state == self.playing or self.state == self.pausing:
             self.stop()
-        
+            
         if self.state == self.ready:
+            # check support (throws ValueError exception
+            # if the configuration is not supported)
+            ret = self.p.is_format_supported(
+                    rate=self.generator.fs,
+                    output_device=self.device['index'],
+                    output_channels=self.generator.nchannels_out,
+                    output_format=pyaudio.paFloat32
+                    )
             # open stream
             self.stream = self.p.open(
                     rate=self.generator.fs,
@@ -231,7 +239,7 @@ class WavGenerator:
             self.buffer2float = self.buffer2float_32bit
         else:
             raise Exception ('Unsupported wave format')
-        
+                
     def __del__(self):
         if 'ws' in locals():
             self.wf.close()
@@ -299,7 +307,7 @@ class ConvGenerator(WavGenerator):
 
         # set convolver
         if fir.ndim == 1:
-            self.os = OverlapSave(fir, chunksize, self.nchannels_src, 'float')
+            self.os = OverlapSave(fir, chunksize, self.nchannels_src)
             self.mode = 'SISO'
         elif fir.ndim == 3:
             if fir.shape[1] != self.nchannels_src:
@@ -307,7 +315,7 @@ class ConvGenerator(WavGenerator):
                                         % (self.nchannels_src, fir.shape[1])
                 raise Exception(msg)
 
-            self.os = OverlapSaveMIMO(fir, chunksize, 'float')
+            self.os = OverlapSaveMIMO(fir, chunksize)
             self.nchannels_out = fir.shape[0]
             self.mode = 'MIMO'
         else:
@@ -325,6 +333,7 @@ class ConvGenerator(WavGenerator):
         # convolution
         data_in = data_in.reshape([self.nchannels_src, -1], order='F')
         data_out, len_buf = self.os.conv(data_in)
+        data_out = data_out.astype(np.float32)
         
         if len_buf < 0:
             self.stream_ended.emit() # emit signal
@@ -333,7 +342,7 @@ class ConvGenerator(WavGenerator):
         # gain (FIR)
         data_out *= self.config['gain_fir']
 
-        # clipping
+        # peak
         self._detect_peak(data_out)
         
         # output

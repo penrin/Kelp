@@ -2,9 +2,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-dtype_float = {'float': np.float32, 'double':np.float64}
-dtype_complex = {'float': np.complex64, 'double':np.complex128}
-
 
 class OverlapSave:
     # N-point overlap-save convolution
@@ -13,7 +10,7 @@ class OverlapSave:
     # fir.ndim should be 1.
     # FIR longer than N is automatically chunked.
 
-    def __init__(self, fir, N, channel, dtype='float'):
+    def __init__(self, fir, N, channel):
         if fir.ndim != 1:
             raise Exception('invalid fir shape')
 
@@ -30,15 +27,13 @@ class OverlapSave:
         # instantiate convolver
         self.c = []
         for i in range(len(fir_split)):
-            self.c.append(_Convolver(fir_split[i], N, channel, i, dtype))
+            self.c.append(_Convolver(fir_split[i], N, channel, i))
         
         # input buffer
-        dt_r = dtype_float[dtype]
-        self.in_buf = np.zeros([channel, 2 * N], dtype=dt_r)
+        self.in_buf = np.zeros([channel, 2 * N])
         
         # output
-        dt_c = dtype_complex[dtype]
-        self.out_f = np.zeros([channel, N + 1], dtype=dt_c)
+        self.out_f = np.zeros([channel, N + 1], dtype=np.complex)
 
         # buffering length
         self.len_buf = self.N
@@ -74,19 +69,18 @@ class OverlapSave:
 
 class _Convolver:
 
-    def __init__(self, fir, N, channel, schedule, dtype):
+    def __init__(self, fir, N, channel, schedule):
         self.N = N
         self.schedule = schedule
 
         # FIR (frequency domain)
-        dt_r = dtype_float[dtype]
-        fir_zeropad = np.zeros(2 * N, dtype=dt_r)
+        fir_zeropad = np.zeros(2 * N)
         fir_zeropad[N:N + fir.shape[-1]] = fir
         self.fir_f = np.fft.rfft(fir_zeropad)
         
         # output buffer delay output timing by N * schedule
-        dt_c = dtype_complex[dtype]
-        self.out_f_buf = np.zeros([schedule + 1, channel, N + 1], dtype=dt_c)
+        self.out_f_buf = np.zeros([schedule + 1, channel, N + 1],
+                                                        dtype=np.complex)
         self.i_buf = 0
         
     def conv(self, x_f):
@@ -110,7 +104,7 @@ class OverlapSaveMIMO:
     # fir.ndim should be 1.
     # FIR longer than N is automatically chunked.
 
-    def __init__(self, fir, N, dtype=np.float32):
+    def __init__(self, fir, N):
         if fir.ndim != 3:
             raise Exception('invalid fir shape')
 
@@ -130,15 +124,13 @@ class OverlapSaveMIMO:
         # instantiate convolver
         self.c = []
         for i in range(len(fir_split)):
-            self.c.append(_ConvolverMIMO(fir_split[i], N, i, dtype))
+            self.c.append(_ConvolverMIMO(fir_split[i], N, i))
         
         # input buffer
-        dt_r = dtype_float[dtype]
-        self.in_buf = np.zeros([ch_in, 1, 2 * N], dtype=dt_r)
+        self.in_buf = np.zeros([ch_in, 1, 2 * N])
         
         # output
-        dt_c = dtype_complex[dtype]
-        self.out_f = np.zeros([ch_out, N + 1], dtype=dt_c)
+        self.out_f = np.zeros([ch_out, N + 1], dtype=np.complex)
 
         # buffering length
         self.len_buf = self.N
@@ -175,7 +167,7 @@ class OverlapSaveMIMO:
 
 class _ConvolverMIMO:
 
-    def __init__(self, fir, N, schedule, dtype):
+    def __init__(self, fir, N, schedule):
         self.N = N
         self.schedule = schedule
 
@@ -183,14 +175,13 @@ class _ConvolverMIMO:
         ch_in = fir.shape[1]
         
         # FIR (frequency domain)
-        dt_r = dtype_float[dtype]
-        fir_zeropad = np.zeros([ch_out, ch_in, 2 * N], dtype=dt_r)
+        fir_zeropad = np.zeros([ch_out, ch_in, 2 * N])
         fir_zeropad[:, :, N:N + fir.shape[-1]] = fir
         self.fir_f = np.fft.rfft(fir_zeropad).transpose(2, 0, 1)
         
         # output buffer delay output timing by N * schedule
-        dt_c = dtype_complex[dtype]
-        self.out_f_buf = np.zeros([schedule + 1, ch_out, N + 1], dtype=dt_c)
+        self.out_f_buf = np.zeros([schedule + 1, ch_out, N + 1],
+                                                        dtype=np.complex)
         self.i_buf = 0
         
     def conv(self, x_f):
@@ -217,12 +208,11 @@ if __name__ == '__main__':
     x = np.ones(80).reshape(1, -1)
     h = np.ones(40)
     N = 32
-    dtype = 'float' # or 'double'
 
-    os = OverlapSave(h, N, channel=x.shape[0], dtype=dtype)
+    os = OverlapSave(h, N, channel=x.shape[0])
     
     len_y = h.shape[-1] + x.shape[-1] - 1
-    y = np.empty([x.shape[0], len_y], dtype=dtype)
+    y = np.empty([x.shape[0], len_y])
     ss = 0
     while True:
         y_chunk, len_buf = os.conv(x[:, ss:ss + N])
@@ -242,12 +232,11 @@ if __name__ == '__main__':
     x = np.ones(160).reshape(2, -1)
     h = np.ones([2, 2, 40]) # 2in/2out
     N = 32
-    dtype = 'float'
     
-    os = OverlapSaveMIMO(h, N, dtype=dtype)
+    os = OverlapSaveMIMO(h, N)
     
     len_y = h.shape[-1] + x.shape[-1] - 1
-    y = np.empty([h.shape[0], len_y], dtype=dtype)
+    y = np.empty([h.shape[0], len_y])
     ss = 0
     while True:
         y_chunk, len_buf = os.conv(x[:, ss:ss + N])

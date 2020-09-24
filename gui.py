@@ -1,7 +1,7 @@
 import sys
 import time
 import platform
-#import numpy as np
+import numpy as np
 from PyQt5 import QtWidgets, QtGui, QtCore
 
 import pyaudio
@@ -444,8 +444,12 @@ vvvvv = '''
     Kelp -- FIR Convolution Player
     penrin(github.com/penrin/Kelp)
 <>< ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-
+\n
 '''
+vvvvv += 'Python: %s\n' % sys.version
+vvvvv += 'NumPy: %s\n' % np.__version__
+vvvvv += 'PyQt5: %s\n' % QtCore.PYQT_VERSION_STR
+vvvvv += 'platform: %s\n' % platform.platform()
 
 if __name__ == '__main__':
     print(vvvvv)

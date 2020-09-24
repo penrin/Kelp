@@ -1,12 +1,13 @@
 Kelp
 ====
 
-FIR Convolution Audio Player with GUI
+Audio Player with FIR Convolver
 
 ```
 % python Kelp/gui.py
 ```
 
+[日本語](./README_JP.md)
 
 
 Requirements
@@ -144,3 +145,4 @@ ToDo
 * repeat one/all
 * Show indicator when drag and drop files, and drop there
 * show clipped sections in the slider groove
+
