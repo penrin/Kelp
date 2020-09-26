@@ -91,6 +91,10 @@ Double click it to toggle between 0 and -inf.
 –
 Double click it.
 
+* **Export**
+–
+You can batch export the selected items in the playlist. Enter the export path, set the FFT point and bit width of the `.wav` file, and then click the "Export" button to start the process.
+
 * **Escape Key**
 –
 Clear all selection.
@@ -116,7 +120,6 @@ Rollback playlist to the previous savepoint.
 * **⌘+Q Key**
 –
 Quit.
-
 
 
 
