@@ -1,5 +1,6 @@
 Kelp
 ====
+[For Japanese](./README_JP.md)
 
 Audio Player with FIR Convolver
 
@@ -7,7 +8,7 @@ Audio Player with FIR Convolver
 % python Kelp/gui.py
 ```
 
-[日本語](./README_JP.md)
+![screen_shot](https://user-images.githubusercontent.com/8520833/94340636-5c36ce00-003e-11eb-9398-7c9705380106.png)
 
 
 Requirements
