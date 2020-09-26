@@ -217,7 +217,6 @@ class MainWindow(QtWidgets.QMainWindow):
         
     def play(self):
         indexes_sel = self.playlistview.selectedIndexes()
-        rows_sel_old = {index.row() for index in self.selectedIndexes()}
         
         if indexes_sel:
             #row = indexes_sel[0].row()

@@ -34,16 +34,19 @@ def export(tasks, path, sampwidth, N_str, qprog):
         if task['path2src'] == '':
             error_log += '[%d/%d] skipped\n' % (cnt_task + 1, num_tasks)
             error_log += 'Reason: No source.\n'
+            task['playmark'] = '!'
             continue
         
         elif task['gain_src'] == 0:
             error_log += '[%d/%d] skipped\n' % (cnt_task + 1, num_tasks)
             error_log += 'Reason: Source is muted.\n'
+            task['playmark'] = '!'
             continue
         
         elif task['gain_fir'] == 0:
             error_log += '[%d/%d] skipped\n' % (cnt_task + 1, num_tasks)
             error_log += 'Reason: FIR is muted.\n'
+            task['playmark'] = '!'
             continue
 
         # make generator
@@ -55,6 +58,7 @@ def export(tasks, path, sampwidth, N_str, qprog):
         except Exception as e:
             error_log += '[%d/%d] failed\n' % (cnt_task + 1, num_tasks)
             error_log += 'Reason: %s\n' % e
+            task['playmark'] = '!'
             continue
         
         if qprog.wasCanceled():
@@ -115,6 +119,7 @@ def export(tasks, path, sampwidth, N_str, qprog):
         except Exception as e:
             error_log += '[%d/%d] failed\n' % (cnt_task + 1, num_tasks)
             error_log += 'Reason: %s\n' % e
+            task['playmark'] = '!'
             continue
         # ----- (Classificate) to here
 
