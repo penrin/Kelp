@@ -140,9 +140,7 @@ ${PATH_PYTHON}/python ${PATH_KELP}/gui.py $@ > ${PATH_KELP}/log.txt
 ToDo
 ----------------------------
 
-* Export convolved signal
-* Enrich Help
-* repeat one/all
 * Show indicator when drag and drop files, and drop there
-* show clipped sections in the slider groove
-
+* Improve convolution performance
+	- Optimize overlap length
+	- Avoid FFTs with the same FIR (when "Export"ing)

@@ -1,3 +1,4 @@
+import os
 import sys
 import time
 import platform
@@ -8,6 +9,7 @@ import pyaudio
 
 from player import Player
 from playlist import PlayListView, PlayListModel
+import batch
 
 
 class ComboBox(QtWidgets.QComboBox):
@@ -72,15 +74,32 @@ class MainWindow(QtWidgets.QMainWindow):
         self.playlistview = PlayListView(self.playlistmodel)
         self.playlistview.installEventFilter(self) # set eventFilter to tableView
         
-        # export button
-        #btn_export = QtWidgets.QPushButton('Export', self)
-        #btn_export.setMinimumSize(80, 30)
+        
+        # folder (for export)
+        self.line_dir = QtWidgets.QLineEdit(self)
+        self.line_dir.setPlaceholderText('Set the export path')
+        #self.line_dir.setFocusPolicy(QtCore.Qt.NoFocus)
+
+        # FFT-point
+        self.combo_fftpoint = QtWidgets.QComboBox()
+        N_list = ['nextpow2+%d' % i for i in range(1, 11)]
+        N_list += ['%d' % (2 ** i) for i in range(7, 20)]
+        self.combo_fftpoint.addItems(N_list)
+
+        # wave format
+        self.combo_wavfmt = QtWidgets.QComboBox()
+        self.combo_wavfmt.addItems(['16 bit', '24 bit', '32 bit'])
+        self.combo_wavfmt.setCurrentIndex(1)
+
+        # export button        
+        self.btn_export = QtWidgets.QPushButton('Export', self)
+        self.btn_export.setMinimumSize(80, 30)
         
         # ----- layout -----
         #   row1: display, device list
         #   row2: position slider, position disploy, play/pause button
         #   row3: play list
-        #   row4: export butto
+        #   row4: export button
 
         box_row1 = QtWidgets.QHBoxLayout()
         box_row1.addWidget(self.label_state)
@@ -90,12 +109,18 @@ class MainWindow(QtWidgets.QMainWindow):
         box_row2.addWidget(self.label_pos)
         box_row2.addWidget(self.slider_pos)
         box_row2.addWidget(self.btn_play)
+
+        box_row4 = QtWidgets.QHBoxLayout()
+        box_row4.addWidget(self.line_dir)
+        box_row4.addWidget(self.combo_fftpoint)
+        box_row4.addWidget(self.combo_wavfmt)
+        box_row4.addWidget(self.btn_export)
         
         central_box = QtWidgets.QVBoxLayout()
         central_box.addLayout(box_row1)
         central_box.addLayout(box_row2)
         central_box.addWidget(self.playlistview)
-        #central_box.addWidget(btn_export, alignment=QtCore.Qt.AlignRight)
+        central_box.addLayout(box_row4)
 
         central_widget = QtWidgets.QWidget(self)
         central_widget.setLayout(central_box)
@@ -138,6 +163,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # update peak
         self.player.peak_updated.connect(self.update_peak)
+
+        # export
+        self.btn_export.clicked.connect(self.export)
 
 
     def eventFilter(self, obj, event):
@@ -189,6 +217,8 @@ class MainWindow(QtWidgets.QMainWindow):
         
     def play(self):
         indexes_sel = self.playlistview.selectedIndexes()
+        rows_sel_old = {index.row() for index in self.selectedIndexes()}
+        
         if indexes_sel:
             #row = indexes_sel[0].row()
             rows_sel = {index.row() for index in indexes_sel}
@@ -439,6 +469,65 @@ class MainWindow(QtWidgets.QMainWindow):
         self.playlistmodel.dataChanged.emit(index, index)
 
 
+    def export(self):
+        # stop playing
+        self.stop()
+
+        # get export path
+        export_path = self.line_dir.text()
+        if export_path == '':
+            QtWidgets.QMessageBox.critical(self, '', 'set export path')
+            return
+        elif not os.path.isdir(export_path):
+            QtWidgets.QMessageBox.critical(self, '','path does not exist')
+            return
+
+        # get fftpoint
+        fftpoint_str = self.combo_fftpoint.currentText()
+
+        # get sampwidth
+        wavfmt = self.combo_wavfmt.currentText()
+        if wavfmt == '24 bit':
+            sampwidth = 3
+        elif wavfmt == '16 bit':
+            sampwidth = 2
+        elif wavfmt == '32 bit':
+            sampwidth = 4
+
+        # tasks
+        indexes_sel = self.playlistview.selectedIndexes()
+        if indexes_sel:
+            rows_sel = list({index.row() for index in indexes_sel})
+            tasks = [self.playlistmodel.data[r] for r in rows_sel]
+        else:
+            tasks = self.playlistmodel.data
+
+        # progress dialog
+        progress = QtWidgets.QProgressDialog(self)
+        progress.setWindowModality(QtCore.Qt.WindowModal)
+        progress.setMinimumSize(300, progress.height());
+        progress.setMinimumDuration(100)
+
+        # process
+        error_log = batch.export(
+                tasks, export_path, sampwidth, fftpoint_str, progress)
+
+        # close progressbar
+        progress.reset()
+
+        # display if there is any problem
+        if error_log:
+            QtWidgets.QMessageBox.information(self, '', error_log)
+            
+        # flush playlistview
+        r, c = self.playlistmodel.rowCount(), self.playlistmodel.columnCount()
+        topLeft = self.playlistmodel.index(0, 0)
+        bottomRight = self.playlistmodel.index(r, c)
+        self.playlistmodel.dataChanged.emit(topLeft, bottomRight)
+        
+        
+
+
 vvvvv = '''
  ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ><>
     Kelp -- FIR Convolution Player
@@ -459,6 +548,5 @@ if __name__ == '__main__':
     win.show()
     sys.exit(app.exec_())
     
-
 
 
